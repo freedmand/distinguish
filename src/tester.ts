@@ -1,9 +1,4 @@
-const PASS = ['32']; // green
-const FAIL = ['31', '1']; // red, bold
-
-function logStyle(ansiEscapeCodes: string[], text: string) {
-  console.log(`\x1b[${ansiEscapeCodes.join(';')}m${text}\x1b[0m`);
-}
+import {logStyle, PASS, FAIL} from './log';
 
 function getKeys(object: any): string[] {
   const results = [];

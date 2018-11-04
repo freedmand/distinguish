@@ -4,6 +4,7 @@ import MagicString from 'magic-string';
 import {Renamer} from './renamer';
 import {NamespecParser, Namespec} from './namespec';
 import {MinimalIncrementer} from './incrementer';
+import {logStyle, STATUS, WARN, BOLD} from './log';
 
 interface WalkResult {
   inputFile: string;
@@ -77,6 +78,7 @@ function getAllMatches(regex: RegExp, str: string): RegExpExecArray[] {
   return results;
 }
 
+const startTime = Date.now();
 for (const {inputFile, outputFile, renamer} of walkSync(
   'concept',
   'concept_out',
@@ -102,9 +104,24 @@ for (const {inputFile, outputFile, renamer} of walkSync(
   }
 
   if (hadMatches) {
-    console.log(`Writing ${outputFile} with namespace ${renamer.namespaces.join('/')}`);
+    logStyle(
+      STATUS,
+      `Writing ${outputFile} with namespace ${renamer.namespaces.join('/')}`
+    );
   }
 
   ensureDirectoryExistence(outputFile);
   fs.writeFileSync(outputFile, contents.toString());
+}
+
+const overallTime = Date.now() - startTime;
+logStyle(BOLD, `\nWrote output in ${overallTime / 1000}s`);
+
+const danglers = rootRenamer.danglingImports();
+if (danglers.length > 0) console.log('\n');
+for (const {sourceNamespace, importNamespace, type, name} of danglers) {
+  logStyle(
+    WARN,
+    `Dangling import: ${sourceNamespace} imports unused {type: ${type}, name: ${name}} from ${importNamespace}`
+  );
 }
