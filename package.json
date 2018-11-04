@@ -1,5 +1,5 @@
 {
-  "name": "mold",
+  "name": "distinguish",
   "version": "1.0.0",
   "description": "Minimize CSS class names, IDs, and more with this modular name compression package",
   "main": "index.js",
