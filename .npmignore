@@ -1,0 +1,12 @@
+# General
+.DS_Store
+
+# IDE
+.vscode/
+
+# Node
+node_modules/
+
+# Build folders
+concept/
+concept_out/

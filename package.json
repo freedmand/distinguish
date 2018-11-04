@@ -1,12 +1,26 @@
 {
   "name": "distinguish",
-  "version": "0.0.1",
-  "description": "Minimize CSS class names, IDs, and more with this modular name compression package",
-  "main": "index.js",
+  "version": "0.0.6",
+  "description": "Effortless renaming, minification, and namespacing for CSS class names, IDs, and just about anything else.",
+  "main": "out/cli.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc && chmod +x out/cli.js",
+    "test": "node out/tests.js"
   },
   "author": "Dylan Freedman",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/freedmand/distinguish.git"
+  },
+  "keywords": [
+    "minification",
+    "renaming",
+    "namespacing",
+    "css"
+  ],
+  "bin": {
+    "distinguish": "./out/cli.js"
+  },
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^10.12.2",

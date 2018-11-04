@@ -28,7 +28,7 @@ export class Renamer {
     }
   }
 
-  get fullNamespace(): string {
+  fullNamespace(): string {
     return this.namespaces.join('/');
   }
 
@@ -167,8 +167,8 @@ export class Renamer {
         if (typeMap == null || !typeMap.has(name)) {
           // The import is unused.
           danglers.push({
-            sourceNamespace: this.fullNamespace,
-            importNamespace: renamer.fullNamespace,
+            sourceNamespace: this.fullNamespace(),
+            importNamespace: renamer.fullNamespace(),
             type,
             name,
           });

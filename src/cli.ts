@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import {logStyle, SUCCESS, FAIL, BOLD} from './log';
 import fs from 'fs';
 import path from 'path';
