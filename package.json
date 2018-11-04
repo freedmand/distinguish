@@ -8,9 +8,11 @@
   },
   "author": "Dylan Freedman",
   "license": "MIT",
-  "dependencies": {
-    "magic-string": "^0.25.1",
+  "devDependencies": {
     "ts-node": "^7.0.1",
     "typescript": "^3.1.6"
+  },
+  "dependencies": {
+    "magic-string": "^0.25.1"
   }
 }
