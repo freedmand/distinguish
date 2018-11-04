@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import MagicString from 'magic-string';
 import {Renamer} from './renamer';
-import {NamespecParser, Namespec} from './namespec';
+import {NamespecParser} from './namespec';
 import {
   MinimalIncrementer,
   SimpleIncrementer,
@@ -122,22 +122,25 @@ export class Distinguisher {
       this.distinguishConfig.outputDir,
       this.rootRenamer
     )) {
-      const contentsString = fs.readFileSync(inputFile).toString();
-      const contents = new MagicString(contentsString);
+      let contents = fs.readFileSync(inputFile).toString();
 
       let hadMatches = false;
       for (const type of this.distinguishConfig.types) {
         // Find all matches.
         const matches = getAllMatches(
           new RegExp(`_(${type})-([a-zA-Z0-9_-]+)`, 'g'),
-          contentsString
+          contents
         );
-        for (let i = 0; i < matches.length; i++) {
+        for (let i = matches.length - 1; i >= 0; i--) {
+          // Iterate in reverse order to safely overwrite.
           hadMatches = true; // there was at least a match somewhere
           const [fullMatch, typeMatch, name] = matches[i];
           const {index} = matches[i];
           const renamed = renamer.addName(typeMatch, name);
-          contents.overwrite(index, index + fullMatch.length, renamed);
+          contents =
+            contents.substr(0, index) +
+            renamed +
+            contents.substr(index + fullMatch.length);
         }
       }
 
