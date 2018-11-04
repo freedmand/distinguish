@@ -1,4 +1,4 @@
-import {logStyle, SUCCESS, FAIL} from './log';
+import {logStyle, SUCCESS, FAIL, BOLD} from './log';
 import fs from 'fs';
 import path from 'path';
 import {Distinguisher, DistinguishConfig} from './distinguisher';
@@ -7,7 +7,7 @@ const version = require('../package.json').version;
 
 const VALID_INCREMENTERS = ['simple', 'module', 'minimal'];
 
-const emptyConfigFile = `exports.default = {
+const EMPTY_CONFIG = `exports.default = {
   incrementer: 'simple', // the incrementer to use ([minimal, simple, module])
   types: ['cls', 'id'], // the types to rename (e.g. CSS classes, IDs)
 
@@ -16,6 +16,16 @@ const emptyConfigFile = `exports.default = {
 
   exclude: [], // a regular expression array describing files to exclude from renaming
 };
+`;
+
+const SPLASH_SCREEN = `      _ _     _   _                   _     _     
+     | (_)   | | (_)                 (_)   | |    
+   __| |_ ___| |_ _ _ __   __ _ _   _ _ ___| |__  
+  / _\` | / __| __| | '_ \\ / _\` | | | | / __| '_ \\ 
+ | (_| | \\__ \\ |_| | | | | (_| | |_| | \\__ \\ | | |
+  \\__,_|_|___/\\__|_|_| |_|\\__, |\\__,_|_|___/_| |_|
+                           __/ |                  
+                          |___/                   
 `;
 
 abstract class CLIParser {
@@ -258,7 +268,7 @@ class InitCLI extends CLIParser {
     }
 
     const startTime = Date.now();
-    fs.writeFileSync(fn, emptyConfigFile);
+    fs.writeFileSync(fn, EMPTY_CONFIG);
     const deltaTime = Date.now() - startTime;
     logStyle(SUCCESS, `Wrote config to ${fn} in ${deltaTime / 1000}s`);
   }
@@ -284,15 +294,19 @@ class CLI extends CLIParser {
   }
 
   process() {
+    // Try to consume options.
     if (this.consumeOption(['-v', '--version'])) return this.showVersion();
     if (this.consumeOption(['-h', '--help', '--usage'])) return this.showUsage();
+    if (this.consumeOption(['--splash'])) return this.showSplash();
 
+    // Try to consume sub-commands.
     if (this.consumeOption(['rename'])) {
       return new RenameCLI(this.stream.slice(1), this.executable, this).process();
     }
     if (this.consumeOption(['init'])) {
       return new InitCLI(this.stream.slice(1), this.executable, this).process();
     }
+
     if (this.consumeOption(['help'])) {
       // Show help menus.
       this.advance();
@@ -325,8 +339,15 @@ Commands:
 Options:
   -v, --version                      print the version
   -h, --help, --usage                print this message
+  --splash                           show a fun splash screen
 `);
     process.exit(1);
+  }
+
+  showSplash() {
+    console.log(SPLASH_SCREEN);
+    logStyle(BOLD, 'Effortless renaming, minification, and namespacing');
+    logStyle(BOLD, 'for CSS class names, IDs, and just about anything else.\n');
   }
 }
 
