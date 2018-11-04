@@ -1,4 +1,5 @@
 export const PASS = ['32']; // green
+export const SUCCESS = ['32', '1']; // green, bold
 export const FAIL = ['31', '1']; // red, bold
 export const STATUS = ['37']; // gray
 export const WARN = ['95']; // magenta

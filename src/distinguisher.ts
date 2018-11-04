@@ -42,7 +42,7 @@ const incrementers: {[index: string]: {new (): Incrementer}} = {
   module: ModuleIncrementer,
 };
 
-interface DistinguishConfig {
+export interface DistinguishConfig {
   inputDir: string;
   outputDir: string;
   incrementer: string;
