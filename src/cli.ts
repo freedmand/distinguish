@@ -20,6 +20,9 @@ const EMPTY_CONFIG = `exports.default = {
 };
 `;
 
+const DEFAULT_CONFIG_FN = 'distinguish.config.js';
+const BINARY_NAME = 'distinguish';
+
 const SPLASH_SCREEN = `      _ _     _   _                   _     _     
      | (_)   | | (_)                 (_)   | |    
    __| |_ ___| |_ _ _ __   __ _ _   _ _ ___| |__  
@@ -31,11 +34,7 @@ const SPLASH_SCREEN = `      _ _     _   _                   _     _
 `;
 
 abstract class CLIParser {
-  constructor(
-    public stream: string[],
-    public executable: string = process.argv[1],
-    readonly parent?: CLIParser
-  ) {}
+  constructor(public stream: string[], readonly parent?: CLIParser) {}
 
   moreArguments(): boolean {
     if (this.stream.length == 0) {
@@ -88,6 +87,8 @@ class RenameCLI extends CLIParser {
     let expectInputDir = false;
     let expectOutputDir = false;
     let expectExclude = false;
+
+    const noOpts = this.stream.length == 0;
 
     const opts: RenameOptions = {};
     while (this.stream.length > 0) {
@@ -156,7 +157,7 @@ class RenameCLI extends CLIParser {
       // Consume options.
       if (this.consumeOption(['-c', '--config'])) {
         expectConfig = true;
-        opts.configFile = 'distinguish.config.js';
+        opts.configFile = DEFAULT_CONFIG_FN;
         this.advance();
         continue;
       }
@@ -202,6 +203,10 @@ class RenameCLI extends CLIParser {
     }
 
     // Now that we're done processing, let's make sense of the args.
+
+    // If no options were specified, put in the default config file.
+    if (noOpts) opts.configFile = DEFAULT_CONFIG_FN;
+
     if (opts.configFile == null) {
       // Set defaults if no config specified.
       if (opts.incrementer == null) opts.incrementer = 'simple';
@@ -226,13 +231,13 @@ class RenameCLI extends CLIParser {
   }
 
   showUsage() {
-    console.log(`Usage: ${this.executable} rename [options]
+    console.log(`Usage: ${BINARY_NAME} rename [options]
 
   rename and namespace files recursively in a directory
 
 Options:
   -c, --config [fn]         Load all the settings from a config file.
-                            (default if no value passed: distinguish.config.js)
+                            (default if no value passed: ${DEFAULT_CONFIG_FN})
 
 Config options / overrides:
   -n, --incrementer <str>   Specify the incrementer to use.
@@ -259,7 +264,7 @@ Config options / overrides:
 
 class InitCLI extends CLIParser {
   process() {
-    let fn = 'distinguish.config.js';
+    let fn = DEFAULT_CONFIG_FN;
     if (this.stream.length > 0) {
       fn = this.stream[0];
       this.advance();
@@ -276,13 +281,13 @@ class InitCLI extends CLIParser {
   }
 
   showUsage() {
-    console.log(`Usage: ${this.executable} init <fn>
+    console.log(`Usage: ${BINARY_NAME} init <fn>
 
   create a default distinguish config file
 
 Arguments:
   fn        The file to create.
-            (default: distinguish.config.js)
+            (default: ${DEFAULT_CONFIG_FN})
 `);
     process.exit(1);
   }
@@ -303,20 +308,20 @@ class CLI extends CLIParser {
 
     // Try to consume sub-commands.
     if (this.consumeOption(['rename'])) {
-      return new RenameCLI(this.stream.slice(1), this.executable, this).process();
+      return new RenameCLI(this.stream.slice(1), this).process();
     }
     if (this.consumeOption(['init'])) {
-      return new InitCLI(this.stream.slice(1), this.executable, this).process();
+      return new InitCLI(this.stream.slice(1), this).process();
     }
 
     if (this.consumeOption(['help'])) {
       // Show help menus.
       this.advance();
       if (this.consumeOption(['rename'])) {
-        return new RenameCLI(this.stream.slice(1), this.executable, this).showUsage();
+        return new RenameCLI(this.stream.slice(1), this).showUsage();
       }
       if (this.consumeOption(['init'])) {
-        return new InitCLI(this.stream.slice(1), this.executable, this).showUsage();
+        return new InitCLI(this.stream.slice(1), this).showUsage();
       }
     }
 
@@ -328,13 +333,13 @@ class CLI extends CLIParser {
   }
 
   showUsage() {
-    console.log(`Usage: ${this.executable} <command> [options]
+    console.log(`Usage: ${BINARY_NAME} <command> [options]
 
 Commands:
   rename [options]                   rename and namespace files
                                      recursively in a directory
 
-  init <fn=distinguish.config.js>    create a config file
+  init <fn=${DEFAULT_CONFIG_FN}>    create a config file
 
   help [command]                     get options for a given command
 
