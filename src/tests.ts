@@ -111,6 +111,58 @@ from .. import
   t.assertArrayEquals(Array.from(map.values())[0], ['slider']);
 });
 
+t.test('namespecReserves', () => {
+  const spec = `
+namespace slider
+
+reserve
+  css
+    cat
+
+from .. import
+  css
+    slider
+`;
+  const parser = new NamespecParser(spec);
+  const {namespace, imports, reserves} = parser.parse();
+
+  t.assertEquals(namespace, 'slider');
+
+  t.assertArrayEquals(Array.from(reserves.keys()), ['css']);
+  t.assertArrayEquals(Array.from(Array.from(reserves.values())[0].values()), ['cat']);
+
+  t.assertArrayEquals(Array.from(imports.keys()), ['..']);
+  const map = imports.get('..') as Map<string, string[]>;
+  t.assertArrayEquals(Array.from(map.keys()), ['css']);
+  t.assertArrayEquals(Array.from(map.values())[0], ['slider']);
+});
+
+t.test('namespecReservesAtEnd', () => {
+  const spec = `
+namespace slider
+
+from .. import
+  css
+    slider
+
+reserve
+  css
+    cat
+`;
+  const parser = new NamespecParser(spec);
+  const {namespace, imports, reserves} = parser.parse();
+
+  t.assertEquals(namespace, 'slider');
+
+  t.assertArrayEquals(Array.from(imports.keys()), ['..']);
+  const map = imports.get('..') as Map<string, string[]>;
+  t.assertArrayEquals(Array.from(map.keys()), ['css']);
+  t.assertArrayEquals(Array.from(map.values())[0], ['slider']);
+
+  t.assertArrayEquals(Array.from(reserves.keys()), ['css']);
+  t.assertArrayEquals(Array.from(Array.from(reserves.values())[0].values()), ['cat']);
+});
+
 t.test('namespecMultipleValues', () => {
   const spec = `
 namespace slider
@@ -163,6 +215,31 @@ from /slider import
   const sliderMap = imports.get('/slider') as Map<string, string[]>;
   t.assertArrayEquals(Array.from(sliderMap.keys()), ['css']);
   t.assertArrayEquals(Array.from(sliderMap.values())[0], ['slider']);
+});
+
+t.test('namespecNoTrailingWhitespace', () => {
+  const spec = `
+namespace slider
+
+reserve
+  css
+    cat
+
+from .. import
+  css
+    slider`;
+  const parser = new NamespecParser(spec);
+  const {namespace, imports, reserves} = parser.parse();
+
+  t.assertEquals(namespace, 'slider');
+
+  t.assertArrayEquals(Array.from(reserves.keys()), ['css']);
+  t.assertArrayEquals(Array.from(Array.from(reserves.values())[0].values()), ['cat']);
+
+  t.assertArrayEquals(Array.from(imports.keys()), ['..']);
+  const map = imports.get('..') as Map<string, string[]>;
+  t.assertArrayEquals(Array.from(map.keys()), ['css']);
+  t.assertArrayEquals(Array.from(map.values())[0], ['slider']);
 });
 
 t.test('simpleIncrementerBasic', () => {
@@ -225,7 +302,7 @@ t.test('importWarningParentToModule', () => {
 
   r.addName('id', 'dog');
 
-  const component = r.namespace('component');
+  r.namespace('component');
 
   // Don't add id dog from component...
 
@@ -268,4 +345,29 @@ t.test('danglingImportsRecursive', () => {
 
   // Some dangling imports.
   t.assertEquals(root.danglingImports().length, 1);
+});
+
+t.test('reservedIncrementer', () => {
+  const m = new MinimalIncrementer();
+  m.reserve('b');
+  t.assertEquals(m.next(), 'a');
+  t.assertEquals(m.next(), 'c');
+});
+
+t.test('reservedRenamerChild', () => {
+  const r = new Renamer(SimpleIncrementer, ['id']);
+  const component = r.namespace('component');
+  component.reserve('id', 'dog');
+
+  const dog = r.addName('id', 'dog');
+  t.assertEquals(dog, 'dog_1');
+});
+
+t.test('reservedRenamerParent', () => {
+  const r = new Renamer(SimpleIncrementer, ['id']);
+  const component = r.namespace('component');
+  r.reserve('id', 'dog');
+
+  const dog = component.addName('id', 'dog');
+  t.assertEquals(dog, 'dog_1');
 });

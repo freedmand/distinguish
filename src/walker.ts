@@ -29,12 +29,23 @@ function walkSync(
     const namespec = new NamespecParser(
       fs.readFileSync(namespecPath).toString()
     ).parse();
+
+    // Set the namespace.
     renamer = renamer.namespace(Renamer.pathSpecToParts(namespec.namespace));
+
+    // Set imports.
     for (const [importName, importMap] of namespec.imports.entries()) {
       for (const [type, names] of importMap.entries()) {
         for (const name of names) {
           renamer.import(importName, type, name);
         }
+      }
+    }
+
+    // Set reserves.
+    for (const [type, reserves] of namespec.reserves.entries()) {
+      for (const reserveName of reserves.values()) {
+        renamer.reserve(type, reserveName);
       }
     }
   }

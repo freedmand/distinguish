@@ -1,7 +1,23 @@
 import {Renamer} from './renamer';
 
 export abstract class Incrementer {
-  abstract next(name?: string, renamer?: Renamer): string;
+  public reserved: Set<string> = new Set();
+
+  constructor() {}
+
+  next(name?: string, renamer?: Renamer): string {
+    let renamed;
+    do {
+      renamed = this.next_(name, renamer);
+    } while (this.reserved.has(renamed));
+    return renamed;
+  }
+
+  abstract next_(name?: string, renamer?: Renamer): string;
+
+  reserve(name: string) {
+    this.reserved.add(name);
+  }
 }
 
 export class SimpleIncrementer extends Incrementer {
@@ -11,7 +27,7 @@ export class SimpleIncrementer extends Incrementer {
     super();
   }
 
-  next(name: string): string {
+  next_(name: string): string {
     if (this.allNames.has(name)) {
       const baseName = name;
 
@@ -37,7 +53,7 @@ export class ModuleIncrementer extends Incrementer {
     super();
   }
 
-  next(name: string, renamer: Renamer): string {
+  next_(name: string, renamer: Renamer): string {
     name = `${characterSafe(renamer.namespaces.slice(1).join('_'))}${
       renamer.namespaces.length > 1 ? '_' : ''
     }${name}`;
@@ -75,7 +91,7 @@ export class MinimalIncrementer extends Incrementer {
       allowedFirstCharacters == null ? allowedCharacters : allowedFirstCharacters;
   }
 
-  next(): string {
+  next_(): string {
     // Use the current index and calculate all the positions in the allowed
     // character arrays by dividing and calculating the modulus at appropriate
     // strides.

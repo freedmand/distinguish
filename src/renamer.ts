@@ -148,6 +148,13 @@ export class Renamer {
     this.setImport(type, name, namespace);
   }
 
+  reserve(type: string, name: string) {
+    if (this.parent != null) this.parent.reserve(type, name);
+    const incrementer = this.incrementers.get(type);
+    if (incrementer == null) throw new Error(`Cannot reserve: invalid type ${type}`);
+    incrementer.reserve(name);
+  }
+
   danglingImports(): DanglingImport[] {
     let danglers = [];
 
