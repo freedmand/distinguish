@@ -127,9 +127,9 @@ Incrementers work behind the scenes to assign names. There's three main incremen
 
 * **minimal**: assigns names incrementally that are as short as possible, e.g. *a*, *b*, *c*, *...*, *y*, *z*, *aa*, *...*
 
-* **simple**: pretty much preserve the name unless there's a naming conflict. A good mode for development. If there's a conflict, `_1` is appended to the end of the name, then `_2` if there's another conflict, and so on.
+* **simple**: pretty much preserve the name unless there's a naming conflict. A good mode for development. If there's a conflict, `_1` is appended to the end of the name, then `_2` if that conflicts, and so on.
 
-* **module**: essentially the same thing as the simple mode, except the namespace is prepended to the name. If you're in a namespace called `component`, you may product a class name like `_cls-component_search`.
+* **module**: essentially the same thing as the simple mode, except the namespace is prepended to the name. If you're in a namespace called `component`, you may produce a class name like `_cls-component_search`.
 
 ### Types
 
@@ -173,7 +173,7 @@ An example may be the easiest way to demonstrate it.
 
 `src/toggle/toggle.css`:
 
-```css
+```ss
 ._cls-toggle {
   background: blue;
 }
@@ -198,7 +198,7 @@ By default, Distinguish will collide the names. Even though the files are in a d
 
 `src/toggle/.namespec`:
 
-```c
+```
 namespace toggle
 ```
 
@@ -214,7 +214,7 @@ For instance,
 
 `src/a/.namespec`:
 
-```c
+```
 namespace a
 ```
 
@@ -222,9 +222,9 @@ This will endow the `src/a` directory with the namespace `root/a`.
 
 If there's a sub-directory `b` within `a` that has its own namespec, the chain will grow.
 
-`src/a/b/.namespec
+`src/a/b/.namespec`
 
-```c
+```
 namespace b
 ```
 
@@ -234,7 +234,7 @@ Now, the `src/a/b` directory and its subdirectories will have the namespace `roo
 
 Names can be imported across namespaces:
 
-```python
+```
 namespace lib
 
 from barn import
@@ -262,7 +262,7 @@ You may have a dependency which expects a certain class name or ID to be present
 
 Fret not. There's a simple mechanism to avoid clobbering these global reserved names:
 
-```c
+```
 namespace lib
 
 reserve
@@ -274,7 +274,7 @@ reserve
 
 Now, if you use the class `_cls-analytics`, it will be renamed in a way that doesn't clash. For instance, if you're using the simple incrementer, it will be renamed `analytics_1`.
 
-What if you want to specify the actual name `analytics`? Easy. Just write the class as `analytics` (remember, Distinguish only touches things that match the `_{type}-name` form and its variant).
+What if you want to specify the actual name `analytics`? Easy. Just write the class as `analytics` (remember, Distinguish only touches things that match the `_{type}-{name` form and its JS variant `_{type}${name}`).
 
 Reserved names affect the global naming process, so a sub-namespace that reserves a certain name will prevent the root namespace from clobbering it.
 
