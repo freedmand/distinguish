@@ -2,7 +2,7 @@ CSS is great, but isn't it tricky to namespace class names safely?
 
 And shouldn't there be an easy way to minify class names for production lest everyone know you named a slider class `cool-slider` (to avoid that naming conflict you probably invented in the back of your head).
 
-In short, it's been a chore to deal with CSS class names (and ID selectors), and that's been a large part of why it's hard to share modular web components that aren't just pure JavaScript. For these reasons, there should be a general-purpose name compilation tool that is as simple as possible but highly flexible. Introducing...
+In short, it can be a chore to deal with CSS class names (and ID selectors), and that's been a large part of why it's hard to share modular web components that aren't just pure JavaScript. For these reasons, there should be a general-purpose name compilation tool that is as simple as possible but highly flexible. Introducing...
 
 # Distinguish
 
