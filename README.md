@@ -12,7 +12,7 @@ The basic idea of Distinguish is that you mark up your CSS classes slightly to b
 
 Whereas before you might write a CSS class as `.search` or an ID as `#search`, now you write `_cls-search` and `_id-search`. This does a few things.
 
-* Tell Distinguish that you are dealing with `cls`, a CSS class type, and `id`, an ID type. By keeping track, Distinguish knows which context the name `search` is in and can work its magic accordingly.
+* Tells Distinguish that you are dealing with `cls`, a CSS class type, and `id`, an ID type. By keeping track, Distinguish knows which context the name `search` is in and can work its magic accordingly.
 * Uses a naming convention with an underscore and hyphen in the name selector that's easy to parse and unlikely to conflict with anything else.
 
 Distinguish does not require separate logic for handling CSS, HTML, JS, or any other language (like Sass, TypeScript, etc.) — rather, the name carries on its own. Distinguish by default will operate on all files in a specified source directory.
