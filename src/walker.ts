@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import MagicString from 'magic-string';
 import {Renamer} from './renamer';
 import {NamespecParser, Namespec} from './namespec';
 import {MinimalIncrementer} from './incrementer';
