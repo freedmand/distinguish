@@ -33,7 +33,7 @@ Let's say you have an HTML file that has some CSS and JS in it.
 </script>
 ```
 
-Now if you run Distinguish and specify minifying as much as possible, you'll get the following as output:
+If you run Distinguish and specify minifying as much as possible, you'll get the following as output:
 
 ```html
 <style>
