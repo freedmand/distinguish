@@ -216,6 +216,7 @@ class RenameCLI extends CLIParser {
         return this.showUsage();
       }
       opts.configFile = this.stream[0];
+      if (opts.configFile.startsWith('-')) return this.showUsage();
       expectConfig = false;
       this.advance();
     }
@@ -274,7 +275,37 @@ Maybe you need to create a config file first by running:
   }
 
   showUsage(): CLIResult {
-    return (this.parent as CLI).showUsage();
+    if (!this.returnOptsOnly) {
+      console.log(`Usage: ${BINARY_NAME} rename [options]
+
+  rename and namespace files recursively in a directory
+
+Options:
+  -c, --config [fn]         Load all the settings from a config file.
+                            (default if no value passed: ${DEFAULT_CONFIG_FN})
+
+Config options / overrides:
+  -n, --incrementer <str>   Specify the incrementer to use.
+                            Options are 'simple', 'module', or 'minimal'
+                            (default if no config specified: simple)
+
+  -t, --types <list>        Specify a list of types to rename
+                            (default if no config specified: cls,id)
+
+  -i, --inputDir <dir>      The input directory to use
+                            (this arg is mandatory if no config is specified)
+
+  -o, --outputDir <dir>     The output directory to use
+                            (this arg is mandatory if no config is specified)
+
+  -e, --exclude <list>      Regular expression of paths to exclude renaming.
+                            It is recommended to set this in a config file to
+                            have more control.
+                            (default: empty list)
+`);
+      process.exit(1);
+    }
+    return {showUsage: 'rename'};
   }
 }
 
@@ -348,6 +379,19 @@ export class CLI extends CLIParser {
       ).process();
     }
 
+    if (this.consumeOption(['rename'])) {
+      return new RenameCLI(
+        this.stream.slice(1),
+        this.fs,
+        this.requireFn,
+        this.dirname,
+        this.join,
+        this.cwd,
+        this.returnOptsOnly,
+        this
+      ).process();
+    }
+
     if (this.consumeOption(['help'])) {
       // Show help menus.
       this.advance();
@@ -378,16 +422,7 @@ export class CLI extends CLIParser {
       return this.showUsage();
     }
 
-    return new RenameCLI(
-      this.stream,
-      this.fs,
-      this.requireFn,
-      this.dirname,
-      this.join,
-      this.cwd,
-      this.returnOptsOnly,
-      this
-    ).process();
+    return this.showUsage();
   }
 
   showVersion(): CLIResult {

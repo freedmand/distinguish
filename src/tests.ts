@@ -611,9 +611,9 @@ t.test('distinguishCliShowDialogs', () => {
   t.assertObjectEquals(cli('--usage'), {showUsage: 'base'});
   t.assertObjectEquals(cli('help'), {showUsage: 'base'});
   t.assertObjectEquals(cli('help init'), {showUsage: 'init'});
-  t.assertObjectEquals(cli('help rename'), {showUsage: 'base'});
+  t.assertObjectEquals(cli('help rename'), {showUsage: 'rename'});
   t.assertObjectEquals(cli('--invalid-option'), {showUsage: 'base'});
-  t.assertObjectEquals(cli('rename --invalid-option'), {showUsage: 'base'});
+  t.assertObjectEquals(cli('rename --invalid-option'), {showUsage: 'rename'});
 
   // Version
   t.assertObjectEquals(cli('-v'), {showVersion: true});
@@ -631,9 +631,9 @@ t.test('distinguishCliInit', () => {
 });
 
 t.test('distinguishCliRenameNoConfig', () => {
-  const result = cli('');
+  const result = cli('rename');
   // File won't exist yet.
-  t.assertEquals(result.showUsage, 'base');
+  t.assertEquals(result.showUsage, 'rename');
 });
 
 function getConfig(
@@ -659,13 +659,13 @@ function getConfig(
 
 t.test('distinguishCliRenameWithConfig', () => {
   for (const cmd of [
-    '',
-    '-c',
-    '-c distinguish.config.js',
-    '--config',
-    '--config distinguish.config.js',
+    'rename ',
+    'rename -c',
+    'rename -c distinguish.config.js',
+    'rename --config',
+    'rename --config distinguish.config.js',
   ]) {
-    const result = cli('', fs => {
+    const result = cli(cmd, fs => {
       fs.writeFileSync('distinguish.config.js', getConfig());
     });
 
@@ -685,8 +685,8 @@ t.test('distinguishCliRenameWithConfig', () => {
 
 t.test('distinguishCliRenameWithConfigDifferentFile', () => {
   for (const cmd of [
-    '-c specification/config.js',
-    '--config specification/config.js',
+    'rename -c specification/config.js',
+    'rename --config specification/config.js',
   ]) {
     const result = cli(cmd, fs => {
       fs.writeFileSync('specification/config.js', getConfig());
@@ -708,7 +708,7 @@ t.test('distinguishCliRenameWithConfigDifferentFile', () => {
 
 t.test('distinguishCliRenameWithOverrides', () => {
   const result = cli(
-    '-c spec/settings/config.js -n minimal -t dog,cat,hen -i input/src/ -o dest/ -e dog,cat',
+    'rename -c spec/settings/config.js -n minimal -t dog,cat,hen -i input/src/ -o dest/ -e dog,cat',
     fs => {
       fs.writeFileSync('spec/settings/config.js', getConfig());
     }
