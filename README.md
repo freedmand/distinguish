@@ -1,5 +1,3 @@
-[![Build Status](https://travis-ci.org/freedmand/distinguish.svg?branch=master)](https://travis-ci.org/freedmand/distinguish)
-
 CSS is great, but isn't it tricky to namespace class names safely?
 
 And shouldn't there be an easy way to minify class names for production lest everyone know you named a slider class `cool-slider` (to avoid that naming conflict you probably invented in the back of your head).
@@ -8,7 +6,7 @@ In short, it can be a chore to deal with CSS class names (and ID selectors), and
 
 Introducing...
 
-# Distinguish
+# Distinguish [![Build Status](https://travis-ci.org/freedmand/distinguish.svg?branch=master)](https://travis-ci.org/freedmand/distinguish)
 
 The basic idea of Distinguish is that you mark up your CSS classes slightly to be machine-parseable, and then the program will take care of all the heavy lifting to minify names and avoid naming conflicts across modules.
 
