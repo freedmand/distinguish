@@ -1,11 +1,11 @@
 {
   "name": "distinguish",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Effortless renaming, minification, and namespacing for CSS class names, IDs, and just about anything else.",
   "main": "out/cli.js",
   "scripts": {
     "build": "tsc && chmod +x out/index.js",
-    "test": "node out/tests.js"
+    "test": "ts-node src/tests.ts"
   },
   "author": "Dylan Freedman",
   "repository": {
@@ -24,10 +24,7 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^10.12.2",
-    "rollup": "^0.67.0",
-    "rollup-plugin-typescript": "^1.0.0",
     "ts-node": "^7.0.1",
-    "tslib": "^1.9.3",
     "typescript": "^3.1.6"
   }
 }
