@@ -19,6 +19,8 @@ const EMPTY_CONFIG = `exports.default = {
 };
 `;
 
+const RESET_TO_APPLY = '\nConfig changed. Run again to pull in latest config';
+
 const POLL_INTERVAL = 50; // pool watch events for this many millseconds
 
 const DEFAULT_CONFIG_FN = 'distinguish.config.js';
@@ -298,10 +300,21 @@ class RenameCLI extends CLIParser {
         let timer: any = setTimeout(() => (timer = null), POLL_INTERVAL);
 
         chokidar
+          .watch(opts.configFile)
+          .on('change', () => {
+            logStyle(FAIL, RESET_TO_APPLY);
+            process.exit(0);
+          })
+          .on('unlink', () => {
+            logStyle(FAIL, RESET_TO_APPLY);
+            process.exit(0);
+          });
+
+        chokidar
           .watch(opts.inputDir, {ignored: opts.exclude != null ? opts.exclude : []})
           .on('all', (event: any, path: string) => {
             if (opts.configFile != null && path == opts.configFile) {
-              logStyle(WARN, 'Restart to pull in latest config changes');
+              logStyle(FAIL, RESET_TO_APPLY);
               process.exit(0);
             }
 
