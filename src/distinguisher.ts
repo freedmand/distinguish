@@ -58,7 +58,8 @@ export class Distinguisher {
   constructor(
     readonly distinguishConfig: DistinguishConfig,
     readonly fs: BaseFs,
-    readonly dirnameFn: (path: string) => string
+    readonly dirnameFn: (path: string) => string,
+    readonly logging: boolean = true
   ) {
     const incrementer = incrementers[distinguishConfig.incrementer] as {
       new (): Incrementer;
@@ -155,7 +156,7 @@ export class Distinguisher {
         }
       }
 
-      if (hadMatches) {
+      if (this.logging && hadMatches) {
         logStyle(
           STATUS,
           `Writing ${outputFile} with namespace ${renamer.namespaces.join('/')}`
@@ -167,15 +168,17 @@ export class Distinguisher {
     }
 
     const overallTime = Date.now() - startTime;
-    logStyle(BOLD, `\nWrote output in ${overallTime / 1000}s`);
+    if (this.logging) logStyle(BOLD, `\nWrote output in ${overallTime / 1000}s`);
 
     const danglers = this.rootRenamer.danglingImports();
-    if (danglers.length > 0) console.log('\n');
+    if (this.logging && danglers.length > 0) console.log('\n');
     for (const {sourceNamespace, importNamespace, type, name} of danglers) {
-      logStyle(
-        WARN,
-        `Dangling import: ${sourceNamespace} imports unused {type: ${type}, name: ${name}} from ${importNamespace}`
-      );
+      if (this.logging) {
+        logStyle(
+          WARN,
+          `Dangling import: ${sourceNamespace} imports unused {type: ${type}, name: ${name}} from ${importNamespace}`
+        );
+      }
     }
   }
 }

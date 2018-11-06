@@ -428,7 +428,7 @@ t.test('distinguisherBasic', () => {
     exclude: [],
   };
 
-  const d = new Distinguisher(config, fs, fs.dirname);
+  const d = new Distinguisher(config, fs, fs.dirname, false);
   d.run();
 
   t.assertArrayEquals(fs.readdirSync('/'), ['out/', 'src/']);
@@ -462,7 +462,7 @@ t.test('distinguisherClsAndIdBasic', () => {
     exclude: [],
   };
 
-  const d = new Distinguisher(config, fs, fs.dirname);
+  const d = new Distinguisher(config, fs, fs.dirname, false);
   d.run();
 
   t.assertEquals(
@@ -536,7 +536,7 @@ function toggleTest(
     exclude: [],
   };
 
-  const d = new Distinguisher(config, fs, fs.dirname);
+  const d = new Distinguisher(config, fs, fs.dirname, false);
   d.run();
 
   t.assertEquals(
@@ -724,5 +724,24 @@ t.test('distinguishCliRenameWithOverrides', () => {
     inputDir: 'input/src/',
     outputDir: 'dest/',
     exclude: [/dog/, /cat/],
+  });
+});
+
+t.test('distinguishCliWatch', () => {
+  const result = cli('rename -c spec/settings/config.js -w', fs => {
+    fs.writeFileSync('spec/settings/config.js', getConfig());
+  });
+
+  // Let's check we get a matching config.
+  t.assert(result.opts);
+  const opts = result.opts as RenameOptions;
+  t.assertEquals(opts, {
+    configFile: 'spec/settings/config.js',
+    incrementer: 'simple',
+    types: ['cls', 'id'],
+    inputDir: 'src/',
+    outputDir: 'out/',
+    exclude: [],
+    watch: true,
   });
 });

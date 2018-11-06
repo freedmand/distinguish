@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import {logStyle, SUCCESS, FAIL, BOLD} from './log';
+import {logStyle, SUCCESS, FAIL, BOLD, STATUS, WARN, STATUS_BOLD} from './log';
 import fs from 'fs';
 import path from 'path';
 import {Distinguisher, DistinguishConfig} from './distinguisher';
@@ -19,6 +19,8 @@ const EMPTY_CONFIG = `exports.default = {
 };
 `;
 
+const POLL_INTERVAL = 50; // pool watch events for this many millseconds
+
 const DEFAULT_CONFIG_FN = 'distinguish.config.js';
 const BINARY_NAME = 'distinguish';
 
@@ -31,6 +33,15 @@ const SPLASH_SCREEN = `      _ _     _   _                   _     _
                            __/ |                  
                           |___/                   
 `;
+
+function configMissing(path: string) {
+  return `Unable to read in ${path}.
+      
+  Maybe you need to create a config file first by running:
+  
+    distinguish init
+  `;
+}
 
 abstract class CLIParser {
   constructor(
@@ -89,6 +100,7 @@ export interface RenameOptions {
   inputDir?: string;
   outputDir?: string;
   exclude?: RegExp[];
+  watch?: boolean;
 }
 
 export interface CLIResult {
@@ -181,6 +193,13 @@ class RenameCLI extends CLIParser {
         continue;
       }
 
+      if (this.consumeOption(['-w', '--watch'])) {
+        expectConfig = true;
+        opts.watch = true;
+        this.advance();
+        continue;
+      }
+
       if (this.consumeOption(['-n', '--incrementer'])) {
         expectIncrementer = true;
         this.advance();
@@ -236,19 +255,17 @@ class RenameCLI extends CLIParser {
       if (!this.returnOptsOnly) {
         opts.configFile = path.join(process.cwd(), opts.configFile);
       }
+      if (!this.fs.existsSync(opts.configFile)) {
+        if (!this.returnOptsOnly) {
+          logStyle(FAIL, configMissing(opts.configFile));
+        }
+        return this.showUsage();
+      }
       const settings = this.requireFn(opts.configFile).default;
 
       if (settings == undefined) {
         if (!this.returnOptsOnly) {
-          logStyle(
-            FAIL,
-            `Unable to read in ${opts.configFile}.
-      
-Maybe you need to create a config file first by running:
-
-  distinguish init
-`
-          );
+          logStyle(FAIL, configMissing(opts.configFile));
         }
         return this.showUsage();
       }
@@ -264,12 +281,42 @@ Maybe you need to create a config file first by running:
     if (!this.returnOptsOnly) {
       console.log('Run settings:\n', opts);
       console.log();
-      const distinguisher = new Distinguisher(
+
+      let distinguisher = new Distinguisher(
         opts as DistinguishConfig,
-        fs,
-        path.dirname
+        this.fs,
+        this.dirname,
+        !this.returnOptsOnly
       );
       distinguisher.run();
+
+      if (opts.watch != null) {
+        const chokidar = this.requireFn('chokidar');
+
+        let count = 1;
+
+        let timer: any = setTimeout(() => (timer = null), POLL_INTERVAL);
+
+        chokidar
+          .watch(opts.inputDir, {ignored: opts.exclude != null ? opts.exclude : []})
+          .on('all', (event: any, path: string) => {
+            if (opts.configFile != null && path == opts.configFile) {
+              logStyle(WARN, 'Restart to pull in latest config changes');
+              process.exit(0);
+            }
+
+            if (timer == null) {
+              timer = setTimeout(() => {
+                logStyle(
+                  STATUS_BOLD,
+                  `\n\nFiles changed, re-distinguishing (#${count++})`
+                );
+                distinguisher.run();
+                timer = null;
+              }, POLL_INTERVAL);
+            }
+          });
+      }
     }
     return {opts};
   }
@@ -283,6 +330,10 @@ Maybe you need to create a config file first by running:
 Options:
   -c, --config [fn]         Load all the settings from a config file.
                             (default if no value passed: ${DEFAULT_CONFIG_FN})
+
+  -w, --watch               Watch the input directory for any changes. Re-run
+                            automatically if anything changes in the input directory or
+                            any of its sub-directories.
 
 Config options / overrides:
   -n, --incrementer <str>   Specify the incrementer to use.
