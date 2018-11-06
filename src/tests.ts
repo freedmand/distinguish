@@ -2,6 +2,9 @@ import {Renamer} from './renamer';
 import {Tester} from './tester';
 import {NamespecParser} from './namespec';
 import {MinimalIncrementer, SimpleIncrementer, ModuleIncrementer} from './incrementer';
+import {VirtualFs} from './virtual-fs';
+import {Distinguisher, DistinguishConfig} from './distinguisher';
+import {CLI, CLIResult, RenameOptions} from './cli';
 
 const t = new Tester();
 
@@ -370,4 +373,356 @@ t.test('reservedRenamerParent', () => {
 
   const dog = component.addName('id', 'dog');
   t.assertEquals(dog, 'dog_1');
+});
+
+t.test('virtualFsBasic', () => {
+  const fs = new VirtualFs();
+  fs.writeFileSync('/hello.txt', 'hello world');
+  t.assertEquals(fs.readFileSync('/hello.txt').toString(), 'hello world');
+  t.assertArrayEquals(fs.readdirSync('/'), ['hello.txt']);
+});
+
+t.test('virtualFsListDir', () => {
+  const fs = new VirtualFs();
+  fs.writeFileSync('/src/index.html', '');
+  fs.writeFileSync('/src/style.css', '');
+  fs.writeFileSync('/src/component/component.html', '');
+  fs.writeFileSync('/src/component/component.css', '');
+  fs.writeFileSync('/src/component/toggle/toggle.css', '');
+  fs.writeFileSync('/src/component/toggle/tests/style/test.js', '');
+  fs.writeFileSync('/out/module/component/test.txt', '');
+
+  t.assertArrayEquals(fs.readdirSync('/'), ['out/', 'src/']);
+  t.assertArrayEquals(fs.readdirSync('/src/'), [
+    'component/',
+    'index.html',
+    'style.css',
+  ]);
+  t.assertArrayEquals(fs.readdirSync('/src/component/'), [
+    'component.css',
+    'component.html',
+    'toggle/',
+  ]);
+  t.assertArrayEquals(fs.readdirSync('/src/component/toggle/'), [
+    'tests/',
+    'toggle.css',
+  ]);
+  t.assertArrayEquals(fs.readdirSync('/src/component/toggle/tests/'), ['style/']);
+  t.assertArrayEquals(fs.readdirSync('/src/component/toggle/tests/style/'), [
+    'test.js',
+  ]);
+  t.assertArrayEquals(fs.readdirSync('/out/'), ['module/']);
+  t.assertArrayEquals(fs.readdirSync('/out/module/'), ['component/']);
+  t.assertArrayEquals(fs.readdirSync('/out/module/component/'), ['test.txt']);
+});
+
+t.test('distinguisherBasic', () => {
+  const fs = new VirtualFs();
+  fs.writeFileSync('/src/style.css', '._cls-content { color: gray; }');
+
+  const config: DistinguishConfig = {
+    inputDir: '/src/',
+    outputDir: '/out/',
+    incrementer: 'minimal',
+    types: ['cls', 'id'],
+    exclude: [],
+  };
+
+  const d = new Distinguisher(config, fs, fs.dirname);
+  d.run();
+
+  t.assertArrayEquals(fs.readdirSync('/'), ['out/', 'src/']);
+  t.assertArrayEquals(fs.readdirSync('/out/'), ['style.css']);
+
+  t.assertEquals(fs.readFileSync('/out/style.css').toString(), '.a { color: gray; }');
+});
+
+t.test('distinguisherClsAndIdBasic', () => {
+  const fs = new VirtualFs();
+  fs.writeFileSync(
+    '/src/index.html',
+    '<div id="_id-content" class="_cls-content">Content here</div>'
+  );
+  fs.writeFileSync(
+    '/src/component/style.css',
+    `
+    ._cls-content {
+      color: gray;
+    }
+    #_id-content {
+      font-weight: bold;
+    }`
+  );
+
+  const config: DistinguishConfig = {
+    inputDir: '/src/',
+    outputDir: '/out/',
+    incrementer: 'minimal',
+    types: ['cls', 'id'],
+    exclude: [],
+  };
+
+  const d = new Distinguisher(config, fs, fs.dirname);
+  d.run();
+
+  t.assertEquals(
+    fs.readFileSync('/out/index.html').toString(),
+    '<div id="a" class="a">Content here</div>'
+  );
+
+  t.assertEquals(
+    fs.readFileSync('/out/component/style.css').toString(),
+    `
+    .a {
+      color: gray;
+    }
+    #a {
+      font-weight: bold;
+    }`
+  );
+});
+
+function toggleSrcIndex(toggleClass: string): string {
+  return `
+<link rel="stylesheet" href="toggle/toggle.css">
+
+<style>
+  .${toggleClass} {
+    background: green;
+  }
+</style>
+
+<div class="${toggleClass}"></div>
+
+<script src="toggle/toggle.js"></script>`;
+}
+
+function toggleToggleCss(toggleClass: string): string {
+  return `
+  .${toggleClass} {
+    background: blue;
+  }`;
+}
+
+function toggleToggleJs(toggleClass: string): string {
+  return `
+  // Create a toggle element from scratch.
+  const div = document.createElement('div');
+  div.classList.add('${toggleClass}');
+  
+  // Code to render it.
+  ...`;
+}
+
+function toggleTest(
+  initialClass: string,
+  indexClass: string,
+  cssClass: string,
+  jsClass: string,
+  playWithFiles?: (fs: VirtualFs) => void
+) {
+  const fs = new VirtualFs();
+  fs.writeFileSync('/src/index.html', toggleSrcIndex(initialClass));
+  fs.writeFileSync('/src/toggle/toggle.css', toggleToggleCss(initialClass));
+  fs.writeFileSync('/src/toggle/toggle.js', toggleToggleJs(initialClass));
+
+  if (playWithFiles != null) playWithFiles(fs);
+
+  const config: DistinguishConfig = {
+    inputDir: '/src/',
+    outputDir: '/out/',
+    incrementer: 'minimal',
+    types: ['cls', 'id'],
+    exclude: [],
+  };
+
+  const d = new Distinguisher(config, fs, fs.dirname);
+  d.run();
+
+  t.assertEquals(
+    fs.readFileSync('/out/index.html').toString(),
+    toggleSrcIndex(indexClass)
+  );
+  t.assertEquals(
+    fs.readFileSync('/out/toggle/toggle.css').toString(),
+    toggleToggleCss(cssClass)
+  );
+  t.assertEquals(
+    fs.readFileSync('/out/toggle/toggle.js').toString(),
+    toggleToggleJs(jsClass)
+  );
+}
+
+t.test('distinguisherNamespaceClash', () => {
+  toggleTest('_cls-toggle', 'a', 'a', 'a');
+});
+
+t.test('distinguisherNamespaceFixComponent', () => {
+  toggleTest('_cls-toggle', 'a', 'b', 'b', (fs: VirtualFs) => {
+    fs.writeFileSync('/src/toggle/.namespec', 'namespace toggle');
+  });
+});
+
+t.test('distinguisherNamespaceImport', () => {
+  toggleTest('_cls-toggle', 'a', 'a', 'a', (fs: VirtualFs) => {
+    fs.writeFileSync(
+      '/src/toggle/.namespec',
+      `namespace toggle
+
+from .. import
+  cls
+    toggle`
+    );
+  });
+});
+
+t.test('distinguisherNamespecReserve', () => {
+  toggleTest('_cls-toggle', 'b', 'c', 'c', (fs: VirtualFs) => {
+    fs.writeFileSync(
+      '/src/toggle/.namespec',
+      `namespace toggle
+
+reserve
+  cls
+    a`
+    );
+  });
+});
+
+function cli(argsString: string, fsInit?: (fs: VirtualFs) => void): CLIResult {
+  const fs = new VirtualFs();
+  if (fsInit != null) fsInit(fs);
+  return new CLI(
+    null,
+    argsString.split(' ').filter(x => x.trim().length > 0),
+    fs,
+    fs.require.bind(fs),
+    fs.dirname,
+    fs.join,
+    () => '/',
+    true
+  ).process();
+}
+
+t.test('distinguishCliShowDialogs', () => {
+  // Help
+  t.assertObjectEquals(cli('--help'), {showUsage: 'base'});
+  t.assertObjectEquals(cli('-h'), {showUsage: 'base'});
+  t.assertObjectEquals(cli('--usage'), {showUsage: 'base'});
+  t.assertObjectEquals(cli('help'), {showUsage: 'base'});
+  t.assertObjectEquals(cli('help init'), {showUsage: 'init'});
+  t.assertObjectEquals(cli('help rename'), {showUsage: 'base'});
+  t.assertObjectEquals(cli('--invalid-option'), {showUsage: 'base'});
+  t.assertObjectEquals(cli('rename --invalid-option'), {showUsage: 'base'});
+
+  // Version
+  t.assertObjectEquals(cli('-v'), {showVersion: true});
+  t.assertObjectEquals(cli('--version'), {showVersion: true});
+
+  // Splash
+  t.assertObjectEquals(cli('--splash'), {showSplash: true});
+});
+
+t.test('distinguishCliInit', () => {
+  t.assertObjectEquals(cli('init'), {initFn: 'distinguish.config.js'});
+  t.assertObjectEquals(cli('init config.js'), {initFn: 'config.js'});
+  t.assertObjectEquals(cli('init -o'), {showUsage: 'init'});
+  t.assertObjectEquals(cli('init config.js extraneous'), {showUsage: 'init'});
+});
+
+t.test('distinguishCliRenameNoConfig', () => {
+  const result = cli('');
+  // File won't exist yet.
+  t.assertEquals(result.showUsage, 'base');
+});
+
+function getConfig(
+  incrementer: string = 'simple',
+  types: string[] = ['cls', 'id'],
+  inputDir: string = 'src/',
+  outputDir: string = 'out/',
+  exclude: string[] = []
+): string {
+  return `exports.default = {
+    incrementer: '${incrementer}', // the incrementer to use ([minimal, simple, module])
+    types: ${JSON.stringify(types)}, // the types to rename (e.g. CSS classes, IDs)
+  
+    inputDir: '${inputDir}', // the input directory to use
+    outputDir: '${outputDir}', // the output directory to use
+  
+    exclude: ${JSON.stringify(
+      exclude
+    )}, // a regular expression array describing files to exclude from renaming
+  };
+  `;
+}
+
+t.test('distinguishCliRenameWithConfig', () => {
+  for (const cmd of [
+    '',
+    '-c',
+    '-c distinguish.config.js',
+    '--config',
+    '--config distinguish.config.js',
+  ]) {
+    const result = cli('', fs => {
+      fs.writeFileSync('distinguish.config.js', getConfig());
+    });
+
+    // Let's check we get a matching config.
+    t.assert(result.opts);
+    const opts = result.opts as RenameOptions;
+    t.assertEquals(opts, {
+      configFile: 'distinguish.config.js',
+      incrementer: 'simple',
+      types: ['cls', 'id'],
+      inputDir: 'src/',
+      outputDir: 'out/',
+      exclude: [],
+    });
+  }
+});
+
+t.test('distinguishCliRenameWithConfigDifferentFile', () => {
+  for (const cmd of [
+    '-c specification/config.js',
+    '--config specification/config.js',
+  ]) {
+    const result = cli(cmd, fs => {
+      fs.writeFileSync('specification/config.js', getConfig());
+    });
+
+    // Let's check we get a matching config.
+    t.assert(result.opts);
+    const opts = result.opts as RenameOptions;
+    t.assertEquals(opts, {
+      configFile: 'specification/config.js',
+      incrementer: 'simple',
+      types: ['cls', 'id'],
+      inputDir: 'src/',
+      outputDir: 'out/',
+      exclude: [],
+    });
+  }
+});
+
+t.test('distinguishCliRenameWithOverrides', () => {
+  const result = cli(
+    '-c spec/settings/config.js -n minimal -t dog,cat,hen -i input/src/ -o dest/ -e dog,cat',
+    fs => {
+      fs.writeFileSync('spec/settings/config.js', getConfig());
+    }
+  );
+
+  // Let's check we get a matching config.
+  t.assert(result.opts);
+  const opts = result.opts as RenameOptions;
+  t.assertEquals(opts, {
+    configFile: 'spec/settings/config.js',
+    incrementer: 'minimal',
+    types: ['dog', 'cat', 'hen'],
+    inputDir: 'input/src/',
+    outputDir: 'dest/',
+    exclude: [/dog/, /cat/],
+  });
 });

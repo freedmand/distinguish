@@ -29,8 +29,35 @@ export class Tester {
     }
   }
 
+  static getType(obj: any): 'array' | 'object' | 're' | 'primitive' {
+    if (Array.isArray(obj)) {
+      return 'array';
+    } else if (obj instanceof RegExp) {
+      return 're';
+    } else if (obj.constructor == Object) {
+      return 'object';
+    } else {
+      return 'primitive';
+    }
+  }
+
   assertEquals(arg1: any, arg2: any) {
-    if (arg1 != arg2) throw new Error(`Expected ${arg1} to equal ${arg2}`);
+    const type1 = Tester.getType(arg1);
+    const type2 = Tester.getType(arg2);
+    if (type1 != type2) {
+      throw new Error(
+        `Types of ${arg1} and ${arg2} are not the same: ${type1} vs. ${type2}`
+      );
+    }
+    if (type1 == 'array') {
+      this.assertArrayEquals(arg1, arg2);
+    } else if (type1 == 'object') {
+      this.assertObjectEquals(arg1, arg2);
+    } else if (type1 == 're') {
+      this.assertEquals(arg1.source, arg2.source);
+    } else {
+      if (arg1 != arg2) throw new Error(`Expected ${arg1} to equal ${arg2}`);
+    }
   }
 
   assertArrayEquals(arg1: Array<any>, arg2: Array<any>) {

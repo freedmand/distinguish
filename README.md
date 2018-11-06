@@ -91,7 +91,7 @@ For a minimal example, create an `index.html` in your `inputDir`:
 Now run Distinguish:
 
 ```bash
-npx distinguish rename
+npx distinguish
 ```
 
 In your output folder you should see the following:
@@ -135,9 +135,9 @@ Incrementers work behind the scenes to assign names. There's three main incremen
 
 While the examples have been laser-focused on CSS classes and IDs, there's no limit to what types can be renamed. Distinguish was designed to support whatever types you want. `['cls', 'id']` is the default configuration, but you're free to modify or do away with those types.
 
-Distinguish will modify any string of the form `_{type}-{name}` that it encounters in the files it recursively crawls in the input directory, where `{type}` is the type name (e.g. `cls`). For compatibility with JavaScript naming rules, `_{type}${name}` is also transformed.
+Distinguish will modify any string of the form `_{type}-{name}` that it encounters in the files it recursively crawls in the input directory, where `{type}` is the type name (e.g. `cls`). For compatibility with JavaScript variable naming rules, `_{type}${name}` is also transformed.
 
-For example, you could add the type `fn` and then have your JavaScript functions automatically minified (e.g. `_fn$parse()` -> `a`) — though I would never recommend doing this. Just use a JS minifier like Uglify or Closure compiler instead that actually understands your code's structure.
+For example, you could add the type `fn` and then have your JavaScript functions automatically minified (e.g. `_fn$parse()` → `a`) — though I would never recommend doing this. Just use a JS minifier like Uglify or Closure compiler instead that actually understands your code's structure.
 
 ### Exclude
 
@@ -194,7 +194,7 @@ In this example, there's a webpage (`src/index.html`) which is displaying a togg
 
 We want the sub-directory `src/toggle` to have its own isolated naming context, such that when we import the code into `src/index.html` the names do not collide and the page can ultimately output a blue toggle and a green toggle.
 
-By default, Distinguish will collide the names. Even though the files are in a different directory, they're in the same namespace. Let's change this:
+Distinguish will not do anything special by default; the names will get tangled. Even though the files are in a different directory, they're in the same namespace. Let's change this by creating a namespec file in the `src/toggle` directory:
 
 `src/toggle/.namespec`:
 
@@ -206,9 +206,11 @@ Now, when we run Distinguish, all the names in the `src/toggle` directory (and a
 
 Though this example is contrived, this is a common situation in managing large web projects. Namespaces specified in a namespec file provide a lightweight means to distinguish between duplicate names in different modules.
 
+You may be asking why directories don't by default have different namespaces. This is because style sheets and other resources are often managed in different directories but intended to operate in the same namespace as the HTML files that depend on them. By forcing you to namespace with intention, the results will be more controlled.
+
 ### Anatomy of a namespace
 
-By default, all Distinguish projects have a namespace of `root`. As Distinguish recurses into subdirectories and encounters new namespaces, these are chained onto the end.
+By default, all Distinguish projects have a namespace of `root`. As Distinguish recurses into sub-directories and encounters new namespaces, these are chained onto the end.
 
 For instance,
 
@@ -228,7 +230,7 @@ If there's a sub-directory `b` within `a` that has its own namespec, the chain w
 namespace b
 ```
 
-Now, the `src/a/b` directory and its subdirectories will have the namespace `root/a/b`.
+Now, the `src/a/b` directory and its sub-directories will have the namespace `root/a/b`.
 
 ### Imports
 

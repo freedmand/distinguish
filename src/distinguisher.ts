@@ -1,5 +1,3 @@
-import fs from 'fs';
-import path from 'path';
 import {Renamer} from './renamer';
 import {NamespecParser} from './namespec';
 import {
@@ -9,6 +7,7 @@ import {
   Incrementer,
 } from './incrementer';
 import {logStyle, STATUS, WARN, BOLD} from './log';
+import {BaseFs} from './virtual-fs';
 
 interface WalkResult {
   inputFile: string;
@@ -19,10 +18,14 @@ interface WalkResult {
 const NAMESPEC = '.namespec';
 
 // Adapted from https://stackoverflow.com/a/34509653
-function ensureDirectoryExistence(filePath: string) {
-  const dirname = path.dirname(filePath);
+function ensureDirectoryExistence(
+  filePath: string,
+  dirnameFn: (path: string) => string,
+  fs: BaseFs
+) {
+  const dirname = dirnameFn(filePath);
   if (fs.existsSync(dirname)) return;
-  ensureDirectoryExistence(dirname);
+  ensureDirectoryExistence(dirname, dirnameFn, fs);
   fs.mkdirSync(dirname);
 }
 
@@ -52,7 +55,11 @@ export interface DistinguishConfig {
 export class Distinguisher {
   public rootRenamer: Renamer;
 
-  constructor(readonly distinguishConfig: DistinguishConfig) {
+  constructor(
+    readonly distinguishConfig: DistinguishConfig,
+    readonly fs: BaseFs,
+    readonly dirnameFn: (path: string) => string
+  ) {
     const incrementer = incrementers[distinguishConfig.incrementer] as {
       new (): Incrementer;
     };
@@ -69,10 +76,10 @@ export class Distinguisher {
     if (!outDir.endsWith('/')) outDir += '/';
 
     const namespecPath = `${dir}${NAMESPEC}`;
-    if (fs.existsSync(namespecPath)) {
+    if (this.fs.existsSync(namespecPath)) {
       // Parse a namespec file to determine the renamer's new scope.
       const namespec = new NamespecParser(
-        fs.readFileSync(namespecPath).toString()
+        this.fs.readFileSync(namespecPath).toString()
       ).parse();
 
       // Set the namespace.
@@ -95,14 +102,19 @@ export class Distinguisher {
       }
     }
 
-    const files = fs.readdirSync(dir == '' ? '.' : dir);
+    const files = this.fs.readdirSync(dir == '' ? '.' : dir);
     files.forEach(file => {
       const fn = `${dir}${file}`;
       for (const exclude of this.distinguishConfig.exclude) {
         if (fn.match(exclude) != null) continue;
       }
-      if (fs.statSync(fn).isDirectory()) {
-        filelist = this.walkSync(`${fn}/`, `${outDir}${file}`, renamer, filelist);
+      if (this.fs.statSync(fn).isDirectory()) {
+        filelist = this.walkSync(
+          `${fn + (fn.endsWith('/') ? '' : '/')}`,
+          `${outDir}${file}`,
+          renamer,
+          filelist
+        );
       } else {
         filelist.push({
           inputFile: `${dir}${file}`,
@@ -121,7 +133,7 @@ export class Distinguisher {
       this.distinguishConfig.outputDir,
       this.rootRenamer
     )) {
-      let contents = fs.readFileSync(inputFile).toString();
+      let contents = this.fs.readFileSync(inputFile).toString();
 
       let hadMatches = false;
       for (const type of this.distinguishConfig.types) {
@@ -150,8 +162,8 @@ export class Distinguisher {
         );
       }
 
-      ensureDirectoryExistence(outputFile);
-      fs.writeFileSync(outputFile, contents.toString());
+      ensureDirectoryExistence(outputFile, this.dirnameFn, this.fs);
+      this.fs.writeFileSync(outputFile, contents.toString());
     }
 
     const overallTime = Date.now() - startTime;

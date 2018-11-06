@@ -4,8 +4,7 @@ import {logStyle, SUCCESS, FAIL, BOLD} from './log';
 import fs from 'fs';
 import path from 'path';
 import {Distinguisher, DistinguishConfig} from './distinguisher';
-
-const version = require('../package.json').version;
+import {BaseFs} from './virtual-fs';
 
 const VALID_INCREMENTERS = ['simple', 'module', 'minimal'];
 
@@ -34,11 +33,22 @@ const SPLASH_SCREEN = `      _ _     _   _                   _     _
 `;
 
 abstract class CLIParser {
-  constructor(public stream: string[], readonly parent?: CLIParser) {}
+  constructor(
+    public stream: string[],
+    readonly fs: BaseFs,
+    readonly requireFn: (module: string) => any,
+    readonly dirname: (path: string) => string,
+    readonly join: (...parts: string[]) => string,
+    readonly cwd: () => string,
+    readonly returnOptsOnly: boolean = false,
+    readonly parent?: CLIParser
+  ) {}
 
   moreArguments(): boolean {
     if (this.stream.length == 0) {
-      logStyle(FAIL, `Expected additional arguments\n`);
+      if (!this.returnOptsOnly) {
+        logStyle(FAIL, `Expected additional arguments\n`);
+      }
       return false;
     }
     return true;
@@ -46,7 +56,9 @@ abstract class CLIParser {
 
   noMoreArguments(): boolean {
     if (this.stream.length != 0) {
-      logStyle(FAIL, `Encountered extraneous arguments: ${this.stream}\n`);
+      if (!this.returnOptsOnly) {
+        logStyle(FAIL, `Encountered extraneous arguments: ${this.stream}\n`);
+      }
       return false;
     }
     return true;
@@ -70,7 +82,7 @@ abstract class CLIParser {
   }
 }
 
-interface RenameOptions {
+export interface RenameOptions {
   configFile?: string;
   incrementer?: string;
   types?: string[];
@@ -79,8 +91,16 @@ interface RenameOptions {
   exclude?: RegExp[];
 }
 
+export interface CLIResult {
+  opts?: RenameOptions;
+  initFn?: string;
+  showVersion?: boolean;
+  showUsage?: string;
+  showSplash?: boolean;
+}
+
 class RenameCLI extends CLIParser {
-  process() {
+  process(): CLIResult {
     let expectConfig = false;
     let expectIncrementer = false;
     let expectTypes = false;
@@ -90,20 +110,23 @@ class RenameCLI extends CLIParser {
 
     const noOpts = this.stream.length == 0;
 
-    const opts: RenameOptions = {};
+    const opts: RenameOptions = {configFile: DEFAULT_CONFIG_FN};
     while (this.stream.length > 0) {
       // Go through expectations.
       if (expectIncrementer) {
         if (!this.moreArguments()) {
-          this.showUsage();
-          return;
+          return this.showUsage();
         }
         const incrementer = this.stream[0];
         this.advance();
         if (VALID_INCREMENTERS.indexOf(incrementer) == -1) {
-          logStyle(FAIL, `Expected an incrementer in the set ${VALID_INCREMENTERS}\n`);
-          this.showUsage();
-          return;
+          if (!this.returnOptsOnly) {
+            logStyle(
+              FAIL,
+              `Expected an incrementer in the set ${VALID_INCREMENTERS}\n`
+            );
+          }
+          return this.showUsage();
         }
         opts.incrementer = incrementer;
         expectIncrementer = false;
@@ -112,8 +135,7 @@ class RenameCLI extends CLIParser {
 
       if (expectTypes) {
         if (!this.moreArguments()) {
-          this.showUsage();
-          return;
+          return this.showUsage();
         }
         opts.types = this.stream[0].split(',');
         this.advance();
@@ -123,8 +145,7 @@ class RenameCLI extends CLIParser {
 
       if (expectInputDir) {
         if (!this.moreArguments()) {
-          this.showUsage();
-          return;
+          return this.showUsage();
         }
         opts.inputDir = this.stream[0];
         this.advance();
@@ -134,8 +155,7 @@ class RenameCLI extends CLIParser {
 
       if (expectOutputDir) {
         if (!this.moreArguments()) {
-          this.showUsage();
-          return;
+          return this.showUsage();
         }
         opts.outputDir = this.stream[0];
         this.advance();
@@ -145,8 +165,7 @@ class RenameCLI extends CLIParser {
 
       if (expectExclude) {
         if (!this.moreArguments()) {
-          this.showUsage();
-          return;
+          return this.showUsage();
         }
         opts.exclude = this.stream[0].split(',').map(x => new RegExp(x));
         this.advance();
@@ -194,8 +213,7 @@ class RenameCLI extends CLIParser {
 
       // If nothing was consumed and expectConfig is on, let's check for one.
       if (!this.moreArguments() || !expectConfig) {
-        this.showUsage();
-        return;
+        return this.showUsage();
       }
       opts.configFile = this.stream[0];
       expectConfig = false;
@@ -214,8 +232,26 @@ class RenameCLI extends CLIParser {
       if (opts.exclude == null) opts.exclude = [];
     } else {
       // Load in the config file.
-      opts.configFile = path.join(process.cwd(), opts.configFile);
-      const settings = require(opts.configFile).default;
+      if (!this.returnOptsOnly) {
+        opts.configFile = path.join(process.cwd(), opts.configFile);
+      }
+      const settings = this.requireFn(opts.configFile).default;
+
+      if (settings == undefined) {
+        if (!this.returnOptsOnly) {
+          logStyle(
+            FAIL,
+            `Unable to read in ${opts.configFile}.
+      
+Maybe you need to create a config file first by running:
+
+  distinguish init
+`
+          );
+        }
+        return this.showUsage();
+      }
+
       if (opts.incrementer == null) opts.incrementer = settings.incrementer;
       if (opts.types == null) opts.types = settings.types;
       if (opts.inputDir == null) opts.inputDir = settings.inputDir;
@@ -224,64 +260,46 @@ class RenameCLI extends CLIParser {
     }
 
     // Run time.
-    console.log('Run settings:\n', opts);
-    console.log();
-    const distinguisher = new Distinguisher(opts as DistinguishConfig);
-    distinguisher.run();
+    if (!this.returnOptsOnly) {
+      console.log('Run settings:\n', opts);
+      console.log();
+      const distinguisher = new Distinguisher(
+        opts as DistinguishConfig,
+        fs,
+        path.dirname
+      );
+      distinguisher.run();
+    }
+    return {opts};
   }
 
-  showUsage() {
-    console.log(`Usage: ${BINARY_NAME} rename [options]
-
-  rename and namespace files recursively in a directory
-
-Options:
-  -c, --config [fn]         Load all the settings from a config file.
-                            (default if no value passed: ${DEFAULT_CONFIG_FN})
-
-Config options / overrides:
-  -n, --incrementer <str>   Specify the incrementer to use.
-                            Options are 'simple', 'module', or 'minimal'
-                            (default if no config specified: simple)
-
-  -t, --types <list>        Specify a list of types to rename
-                            (default if no config specified: cls,id)
-
-  -i, --inputDir <dir>      The input directory to use
-                            (this arg is mandatory if no config is specified)
-
-  -o, --outputDir <dir>     The output directory to use
-                            (this arg is mandatory if no config is specified)
-
-  -e, --exclude <list>      Regular expression of paths to exclude renaming.
-                            It is recommended to set this in a config file to
-                            have more control.
-                            (default: empty list)
-`);
-    process.exit(1);
+  showUsage(): CLIResult {
+    return (this.parent as CLI).showUsage();
   }
 }
 
 class InitCLI extends CLIParser {
-  process() {
+  process(): CLIResult {
     let fn = DEFAULT_CONFIG_FN;
     if (this.stream.length > 0) {
       fn = this.stream[0];
+      if (fn.startsWith('-')) return this.showUsage();
       this.advance();
-      if (!this.noMoreArguments()) {
-        this.showUsage();
-        return;
-      }
+      if (!this.noMoreArguments()) return this.showUsage();
     }
 
-    const startTime = Date.now();
-    fs.writeFileSync(fn, EMPTY_CONFIG);
-    const deltaTime = Date.now() - startTime;
-    logStyle(SUCCESS, `Wrote config to ${fn} in ${deltaTime / 1000}s`);
+    if (!this.returnOptsOnly) {
+      const startTime = Date.now();
+      fs.writeFileSync(fn, EMPTY_CONFIG);
+      const deltaTime = Date.now() - startTime;
+      logStyle(SUCCESS, `Wrote config to ${fn} in ${deltaTime / 1000}s`);
+    }
+    return {initFn: fn};
   }
 
-  showUsage() {
-    console.log(`Usage: ${BINARY_NAME} init <fn>
+  showUsage(): CLIResult {
+    if (!this.returnOptsOnly) {
+      console.log(`Usage: ${BINARY_NAME} init <fn>
 
   create a default distinguish config file
 
@@ -289,51 +307,97 @@ Arguments:
   fn        The file to create.
             (default: ${DEFAULT_CONFIG_FN})
 `);
-    process.exit(1);
+      process.exit(1);
+    }
+    return {showUsage: 'init'};
   }
 }
 
-class CLI extends CLIParser {
-  public version: string = version;
-
-  constructor() {
-    super(process.argv.slice(2));
+export class CLI extends CLIParser {
+  constructor(
+    readonly version: string | null,
+    args: string[],
+    fs: BaseFs,
+    requireFn: (module: string) => any,
+    dirname: (path: string) => string,
+    join: (...parts: string[]) => string,
+    cwd: () => string,
+    returnOptsOnly: boolean = false
+  ) {
+    super(args, fs, requireFn, dirname, join, cwd, returnOptsOnly);
   }
 
-  process() {
+  process(): CLIResult {
     // Try to consume options.
     if (this.consumeOption(['-v', '--version'])) return this.showVersion();
     if (this.consumeOption(['-h', '--help', '--usage'])) return this.showUsage();
     if (this.consumeOption(['--splash'])) return this.showSplash();
 
     // Try to consume sub-commands.
-    if (this.consumeOption(['rename'])) {
-      return new RenameCLI(this.stream.slice(1), this).process();
-    }
+
     if (this.consumeOption(['init'])) {
-      return new InitCLI(this.stream.slice(1), this).process();
+      return new InitCLI(
+        this.stream.slice(1),
+        this.fs,
+        this.requireFn,
+        this.dirname,
+        this.join,
+        this.cwd,
+        this.returnOptsOnly,
+        this
+      ).process();
     }
 
     if (this.consumeOption(['help'])) {
       // Show help menus.
       this.advance();
       if (this.consumeOption(['rename'])) {
-        return new RenameCLI(this.stream.slice(1), this).showUsage();
+        return new RenameCLI(
+          this.stream.slice(1),
+          this.fs,
+          this.requireFn,
+          this.dirname,
+          this.join,
+          this.cwd,
+          this.returnOptsOnly,
+          this
+        ).showUsage();
       }
       if (this.consumeOption(['init'])) {
-        return new InitCLI(this.stream.slice(1), this).showUsage();
+        return new InitCLI(
+          this.stream.slice(1),
+          this.fs,
+          this.requireFn,
+          this.dirname,
+          this.join,
+          this.cwd,
+          this.returnOptsOnly,
+          this
+        ).showUsage();
       }
+      return this.showUsage();
     }
 
-    this.showUsage();
+    return new RenameCLI(
+      this.stream,
+      this.fs,
+      this.requireFn,
+      this.dirname,
+      this.join,
+      this.cwd,
+      this.returnOptsOnly,
+      this
+    ).process();
   }
 
-  showVersion() {
-    console.log(this.version);
+  showVersion(): CLIResult {
+    if (!this.returnOptsOnly) console.log(this.version);
+    return {showVersion: true};
   }
 
-  showUsage() {
-    console.log(`Usage: ${BINARY_NAME} <command> [options]
+  showUsage(): CLIResult {
+    if (!this.returnOptsOnly) {
+      console.log(`Usage: ${BINARY_NAME} <command> [options]
 
 Commands:
   rename [options]                   rename and namespace files
@@ -348,14 +412,17 @@ Options:
   -h, --help, --usage                print this message
   --splash                           show a fun splash screen
 `);
-    process.exit(1);
+      process.exit(1);
+    }
+    return {showUsage: 'base'};
   }
 
-  showSplash() {
-    console.log(SPLASH_SCREEN);
-    logStyle(BOLD, 'Effortless renaming, minification, and namespacing');
-    logStyle(BOLD, 'for CSS class names, IDs, and just about anything else.\n');
+  showSplash(): CLIResult {
+    if (!this.returnOptsOnly) {
+      console.log(SPLASH_SCREEN);
+      logStyle(BOLD, 'Effortless renaming, minification, and namespacing');
+      logStyle(BOLD, 'for CSS class names, IDs, and just about anything else.\n');
+    }
+    return {showSplash: true};
   }
 }
-
-new CLI().process();
