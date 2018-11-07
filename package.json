@@ -1,6 +1,6 @@
 {
   "name": "distinguish",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Effortless renaming, minification, and namespacing for CSS class names, IDs, and just about anything else.",
   "main": "out/cli.js",
   "scripts": {

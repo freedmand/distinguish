@@ -10,7 +10,7 @@ Introducing...
 
 The basic idea of Distinguish is that you mark up your CSS classes slightly to be machine-parseable, and then the program will take care of all the heavy lifting to minify names and avoid naming conflicts across modules.
 
-Whereas before you might write a CSS class as `.search` or an ID as `#search`, now you write `_cls-search` and `_id-search`. This does a few things.
+Whereas before you might write a CSS class as `.search` or an ID as `#search`, now you write `._cls-search` and `#_id-search`. This does a few things.
 
 * Tells Distinguish that you are dealing with `cls`, a CSS class type, and `id`, an ID type. By keeping track, Distinguish knows which context the name `search` is in and can work its magic accordingly.
 * Uses a naming convention with an underscore and hyphen in the name selector that's easy to parse and unlikely to conflict with anything else.
@@ -49,7 +49,7 @@ If you run Distinguish and specify minifying as much as possible, you'll get the
 </script>
 ```
 
-That's it. No tricks or special magic. Just pure regular expression parsing and an intelligent naming module that can keep track of multiple types. And a nice perk is that this naming mechanism works without compiling as well as long as there's no naming collisions.
+That's it. No tricks or special magic. Just pure regular expression parsing and an intelligent naming module that can keep track of multiple types. And a nice perk is that the code will execute fine without running Distinguish so long as there are no naming collisions across modules (but more on that later).
 
 That's a taste of Distinguish, a renaming tool that works on any file and can be used in many different ways. But it can also do much more, like namespace directories to avoid cross-module clashing, reserve certain names, and report unused dependencies.
 
@@ -88,10 +88,10 @@ For a minimal example, create an `index.html` in your `inputDir`:
 <div class="_cls-red">Hello world.</div>
 ```
 
-Now run Distinguish:
+Now run Distinguish (if you want to watch for changes, add `-w`):
 
 ```bash
-npx distinguish
+npx distinguish rename
 ```
 
 In your output folder you should see the following:
@@ -137,7 +137,7 @@ While the examples have been laser-focused on CSS classes and IDs, there's no li
 
 Distinguish will modify any string of the form `_{type}-{name}` that it encounters in the files it recursively crawls in the input directory, where `{type}` is the type name (e.g. `cls`). For compatibility with JavaScript variable naming rules, `_{type}${name}` is also transformed.
 
-For example, you could add the type `fn` and then have your JavaScript functions automatically minified (e.g. `_fn$parse()` → `a`) — though I would never recommend doing this. Just use a JS minifier like Uglify or Closure compiler instead that actually understands your code's structure.
+For example, you could add the type `fn` and then have your JavaScript functions automatically minified (e.g. `_fn$parse()` → `a`) — though I would recommend using an intelligent JS minifier instead.
 
 ### Exclude
 
@@ -145,9 +145,7 @@ The `exclude` option in the config is an array of fully specified regular expres
 
 ## The .namespec file
 
-Distinguish specially handles any files named `.namespec` that it encounters in its crawl. The namespec file specifies the *namespace* of the current directory. Namespaces are covered more in the next section — they are essentially modules that treat instances of the same name differently to avoid collisions.
-
-The namespec file can additionally import names from other namespaces as well as reserve certain names to be globally avoided in renaming.
+Distinguish specially handles any files named `.namespec` that it encounters in its crawl. The namespec file specifies the *namespace* of the current directory. The namespec file can additionally import names from other namespaces as well as reserve certain names to be globally avoided in renaming.
 
 ### Namespaces
 
