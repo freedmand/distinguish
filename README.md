@@ -2,17 +2,20 @@ CSS is great, but isn't it tricky to namespace class names safely?
 
 And shouldn't there be an easy way to minify class names for production lest everyone know you named a slider class `cool-slider` (to avoid that naming conflict you probably invented in the back of your head).
 
-In short, it can be a chore to deal with CSS class names (and ID selectors), and that's been a large part of why it's hard to share modular web components that aren't just pure JavaScript. For these reasons, there should be a general-purpose name compilation tool that is as simple as possible but highly flexible.
+In short, it can be a chore to deal with CSS class names (and ID selectors), and that's been a large part of why it's hard to share modular web components that aren't just pure JavaScript. For these reasons, there should be a general-purpose name remapping tool that is easy to use and highly flexible.
 
 Introducing...
 
 # Distinguish [![Build Status](https://travis-ci.org/freedmand/distinguish.svg?branch=master)](https://travis-ci.org/freedmand/distinguish)
 
-The basic idea of Distinguish is that you mark up your CSS classes slightly to be machine-parseable, and then the program will take care of all the heavy lifting to minify names and avoid naming conflicts across modules.
+Distinguish is a Node command-line tool to rename and minify identifiers in any language, isolate namespaces, and declare variables — it is designed to be simple and fast.
 
-Whereas before you might write a CSS class as `.search` or an ID as `#search`, now you write `._cls-search` and `#_id-search`. This does a few things.
+In a nutshell, you put in minimal effort to mark up your CSS classes (and other identifiers), and then the program will take care of all the heavy lifting to minify names and avoid naming conflicts across modules.
 
-* Tells Distinguish that you are dealing with `cls`, a CSS class type, and `id`, an ID type. By keeping track, Distinguish knows which context the name `search` is in and can work its magic accordingly.
+Whereas before you might write a CSS class as `.search` or an ID as `#search`, now you write `._cls-search` and `#_id-search`. This does a few things:
+
+* Tells Distinguish that you are dealing with `cls`, a CSS class type, and `id`, an ID type. By keeping track, Distinguish knows which context the name `search` is in and can work its magic accordingly. You can define your own types to rename all sorts of things.
+* Still works in modern browsers without needing compilation (unless you have names that clash across namespaces, which are described in more detail below).
 * Uses a naming convention with an underscore and hyphen in the name selector that's easy to parse and unlikely to conflict with anything else.
 
 Distinguish does not require separate logic for handling CSS, HTML, JS, or any other language (like Sass, TypeScript, etc.) — rather, the name carries on its own. Distinguish by default will operate on all files in a specified source directory.
@@ -49,9 +52,9 @@ If you run Distinguish and specify minifying as much as possible, you'll get the
 </script>
 ```
 
-That's it. No tricks or special magic. Just pure regular expression parsing and an intelligent naming module that can keep track of multiple types. And a nice perk is that the code will execute fine without running Distinguish so long as there are no naming collisions across modules (but more on that later).
+That's it. No tricks or special magic. Just pure regular expression parsing and an intelligent naming module that can keep track of multiple types. And the code will execute as expected without running Distinguish so long as there are no naming collisions across modules (but more on that later).
 
-That's a taste of Distinguish, a renaming tool that works on any file and can be used in many different ways. But it can also do much more, like namespace directories to avoid cross-module clashing, reserve certain names, and report unused dependencies.
+That's a taste of Distinguish, a renaming tool that works on any file and can be used in many different ways. But it can also do much more, like namespace directories to avoid cross-module clashing, reserve certain names, declare variables, and report unused dependencies.
 
 ## Getting started
 
@@ -127,7 +130,7 @@ Incrementers work behind the scenes to assign names. There's three main incremen
 
 * **minimal**: assigns names incrementally that are as short as possible, e.g. *a*, *b*, *c*, *...*, *y*, *z*, *aa*, *...*
 
-* **simple**: pretty much preserve the name unless there's a naming conflict. A good mode for development. If there's a conflict, `_1` is appended to the end of the name, then `_2` if that conflicts, and so on.
+* **simple**: pretty much preserve the name unless there's a naming conflict across different namespaces (see the next section for information). This is a good mode for development. If there is a conflict, `_1` is appended to the end of the name, then `_2` if that conflicts, and so on.
 
 * **module**: essentially the same thing as the simple mode, except the namespace is prepended to the name. If you're in a namespace called `component`, you may produce a class name like `_cls-component_search`.
 
@@ -145,7 +148,7 @@ The `exclude` option in the config is an array of fully specified regular expres
 
 ## The .namespec file
 
-Distinguish specially handles any files named `.namespec` that it encounters in its crawl. The namespec file specifies the *namespace* of the current directory. The namespec file can additionally import names from other namespaces as well as reserve certain names to be globally avoided in renaming.
+Distinguish specially handles any files named `.namespec` that it encounters in its crawl. The namespec file specifies the *namespace* of the current directory. The namespec file can additionally import names from other namespaces, declare variables, and reserve certain names to be globally avoided in renaming.
 
 ### Namespaces
 
@@ -204,7 +207,7 @@ Now, when we run Distinguish, all the names in the `src/toggle` directory (and a
 
 Though this example is contrived, this is a common situation in managing large web projects. Namespaces specified in a namespec file provide a lightweight means to distinguish between duplicate names in different modules.
 
-You may be asking why directories don't by default have different namespaces. This is because style sheets and other resources are often managed in different directories but intended to operate in the same namespace as the HTML files that depend on them. By forcing you to namespace with intention, the results will be more controlled.
+You may be asking why directories don't by default have different namespaces. This is because style sheets and other resources are often managed in different directories but intended to operate in the same namespace as the HTML files that depend on them. By forcing you to namespace with intention, the results are better defined.
 
 ### Anatomy of a namespace
 
@@ -250,9 +253,10 @@ This namespec file says to look in the sub-module `barn` and share the classes *
 
 The syntax `from {namespace} import` will look in child namespaces by default. To look in parent namespaces or complex paths the following syntax can be used:
 
-* `../barn`: look in the parent namespace's child named barn (i.e. a sibling namespace)
+* `..`: look in the parent namespace
+* `../tractor`: look in the parent namespace's child named `tractor` (i.e. a sibling namespace)
 * `/`: look in the root namespace. The `/` at the beginning means the namespace is specified as an absolute
-* `farm/barn/stable`: look in the namespace `farm`'s child named `barn`, and then get `barn`'s child named `stable`
+* `farm/barn/cow`: look in the namespace `farm`'s child named `barn`, and then get `barn`'s child named `cow`
 
 Imports allow controlled leakage between components. For instance, a themes namespace may share specified class names with the root namespace to be able to modify CSS classes on the main web page.
 
@@ -277,6 +281,44 @@ Now, if you use the class `_cls-analytics`, it will be renamed in a way that doe
 What if you want to specify the actual name `analytics`? Easy. Just write the class as `analytics` (remember, Distinguish only touches things that match the `_{type}-{name` form and its JS variant `_{type}${name}`).
 
 Reserved names affect the global naming process, so a sub-namespace that reserves a certain name will prevent the root namespace from clobbering it.
+
+### Declaring variables
+
+Say you want to define a theme color that you use across the site. Technologies like Sass have been developed to allow stylesheets to use variables like this, but there's still redundancies if you need to specify the color in JavaScript, HTML, or elsewhere.
+
+The `declare` syntax in a namespec file allows you to map names automatically to single-line strings. In the following example, assume our Distinguish config file has been expanded to incorporate a type called `var`:
+
+```
+namespace colors
+
+declare
+  var
+    blue=#697f98
+```
+
+Now, we can easily access this color value in stylesheets and more.
+
+`main.css`:
+
+```css
+._cls-foreground {
+  color: _var-blue;
+}
+
+._cls-background {
+  background: _var-blue;
+}
+```
+
+`index.html`:
+
+```html
+<svg><rect fill="_var-blue"></rect></svg>
+```
+
+In this example, the color blue is mapped to the string `#697f98` when `_var-blue` is used. This can be a very powerful mechanism to avoid redundancies across code, but it is important to note that this kind of example won't function correctly uncompiled.
+
+Declared variables can be imported using the imports mechanism described above.
 
 ## Unused dependencies
 
