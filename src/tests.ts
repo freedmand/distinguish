@@ -589,6 +589,55 @@ reserve
   });
 });
 
+t.test('distinguisherNamespecDeclareBasic', () => {
+  const fs = new VirtualFs();
+  fs.writeFileSync(
+    '/src/.namespec',
+    `namespace main
+
+declare
+  var
+    blue=#697f98`
+  );
+  fs.writeFileSync(
+    '/src/style.css',
+    `._cls-foreground {
+  color: _var-blue;
+}
+
+._cls-background {
+  background: _var-blue;
+}`
+  );
+  fs.writeFileSync('/src/index.html', '<svg><rect fill="_var-blue"></rect></svg>');
+
+  const config: DistinguishConfig = {
+    inputDir: '/src/',
+    outputDir: '/out/',
+    incrementer: 'minimal',
+    types: ['cls', 'id', 'var'],
+    exclude: [],
+  };
+
+  const d = new Distinguisher(config, fs, fs.dirname, false);
+  d.run();
+
+  t.assertEquals(
+    fs.readFileSync('/out/style.css').toString(),
+    `.a {
+  color: #697f98;
+}
+
+.b {
+  background: #697f98;
+}`
+  );
+  t.assertEquals(
+    fs.readFileSync('/out/index.html').toString(),
+    '<svg><rect fill="#697f98"></rect></svg>'
+  );
+});
+
 function cli(argsString: string, fsInit?: (fs: VirtualFs) => void): CLIResult {
   const fs = new VirtualFs();
   if (fsInit != null) fsInit(fs);

@@ -1,12 +1,12 @@
 import {Renamer} from './renamer';
-import {NamespecParser} from './namespec';
+import {NamespecParser, Namespec} from './namespec';
 import {
   MinimalIncrementer,
   SimpleIncrementer,
   ModuleIncrementer,
   Incrementer,
 } from './incrementer';
-import {logStyle, STATUS, WARN, BOLD} from './log';
+import {logStyle, STATUS, WARN, BOLD, FAIL} from './log';
 import {BaseFs} from './virtual-fs';
 
 interface WalkResult {
@@ -79,26 +79,40 @@ export class Distinguisher {
     const namespecPath = `${dir}${NAMESPEC}`;
     if (this.fs.existsSync(namespecPath)) {
       // Parse a namespec file to determine the renamer's new scope.
-      const namespec = new NamespecParser(
+      let namespec: Namespec | null = null;
+      // try {
+      namespec = new NamespecParser(
         this.fs.readFileSync(namespecPath).toString()
       ).parse();
+      // } catch (e) {
+      // logStyle(FAIL, `Error parsing ${namespecPath}: ${e}`);
+      // }
 
-      // Set the namespace.
-      renamer = renamer.namespace(Renamer.pathSpecToParts(namespec.namespace));
+      if (namespec != null) {
+        // Set the namespace.
+        renamer = renamer.namespace(Renamer.pathSpecToParts(namespec.namespace));
 
-      // Set imports.
-      for (const [importName, importMap] of namespec.imports.entries()) {
-        for (const [type, names] of importMap.entries()) {
-          for (const name of names) {
-            renamer.import(importName, type, name);
+        // Set imports.
+        for (const [importName, importMap] of Array.from(namespec.imports.entries())) {
+          for (const [type, names] of Array.from(importMap.entries())) {
+            for (const name of names) {
+              renamer.import(importName, type, name);
+            }
           }
         }
-      }
 
-      // Set reserves.
-      for (const [type, reserves] of namespec.reserves.entries()) {
-        for (const reserveName of reserves.values()) {
-          renamer.reserve(type, reserveName);
+        // Set reserves.
+        for (const [type, reserves] of Array.from(namespec.reserves.entries())) {
+          for (const [nameValue] of Array.from(reserves.values())) {
+            renamer.reserve(type, nameValue);
+          }
+        }
+
+        // Set declares.
+        for (const [type, declares] of Array.from(namespec.declares.entries())) {
+          for (const [nameValue, varValue] of Array.from(declares.entries())) {
+            renamer.declare(type, nameValue, varValue);
+          }
         }
       }
     }
@@ -143,12 +157,16 @@ export class Distinguisher {
           new RegExp(`_(${type})[\$-]([a-zA-Z0-9_-]+)`, 'g'),
           contents
         );
-        for (let i = matches.length - 1; i >= 0; i--) {
-          // Iterate in reverse order to safely overwrite.
+        let offset = 0;
+        for (let i = 0; i < matches.length; i++) {
+          // Iterate in correct order and keep track of offset.
           hadMatches = true; // there was at least a match somewhere
           const [fullMatch, typeMatch, name] = matches[i];
-          const {index} = matches[i];
+          let {index} = matches[i];
+          index -= offset;
           const renamed = renamer.addName(typeMatch, name);
+          offset += fullMatch.length - renamed.length;
+
           contents =
             contents.substr(0, index) +
             renamed +

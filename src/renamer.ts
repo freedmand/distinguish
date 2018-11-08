@@ -155,12 +155,18 @@ export class Renamer {
     incrementer.reserve(name);
   }
 
+  declare(type: string, name: string, value: string) {
+    const typeMap = this.namingMaps.get(type);
+    if (typeMap == null) throw new Error(`Cannot declare: invalid type ${type}`);
+    typeMap.set(name, value);
+  }
+
   danglingImports(): DanglingImport[] {
     let danglers = [];
 
-    for (const [type, importMap] of this.imports.entries()) {
+    for (const [type, importMap] of Array.from(this.imports.entries())) {
       // Go through each type-to-import entry.
-      for (const [name, renamer] of importMap.entries()) {
+      for (const [name, renamer] of Array.from(importMap.entries())) {
         // Grab the import renamer instance, and use that to extract the typemap.
         const typeMap = renamer.ownNamingMaps.get(type);
 

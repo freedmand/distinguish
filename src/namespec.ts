@@ -34,6 +34,12 @@ export interface Namespec {
   namespace: string;
   imports: Map<string, Map<string, string[]>>;
   reserves: Map<string, Set<string>>;
+  declares: Map<string, Map<string, string>>;
+}
+
+function extractVarValue(nameVar: string): [string, string] {
+  const index = nameVar.indexOf('=');
+  return [nameVar.substr(0, index), nameVar.substr(index + 1)];
 }
 
 export class NamespecParser {
@@ -98,22 +104,30 @@ export class NamespecParser {
     return namespace.contents;
   }
 
-  protected consumeImportOrReserve(): Contents {
+  protected consumeMethod(): Contents {
     let result = this.consumeLine(/^from ([^ ]+) import$/, 'import');
     if (result.contents == null) {
       result = this.consumeLine(/^(reserve)$/, 'reserve');
+      if (result.contents == null) {
+        result = this.consumeLine(/^(declare)$/, 'declare');
+      }
     }
     return result;
   }
 
   protected consumeIndented(
-    expectedWhitespace: string | RegExp | null
+    expectedWhitespace: string | RegExp | null,
+    equalsOk: boolean = false
   ): IndentedVar | null {
     let type;
     if (expectedWhitespace == null) {
-      type = this.consumeLine(/^([ \t]+)([a-zA-Z0-9_-]+)$/);
+      type = this.consumeLine(
+        new RegExp(`^([ \\t]+)([a-zA-Z0-9_-]+${equalsOk ? '=.*' : ''})$`)
+      );
     } else {
-      type = this.consumeLine(new RegExp(`^(${expectedWhitespace})([a-zA-Z0-9_-]+)$`));
+      type = this.consumeLine(
+        new RegExp(`^(${expectedWhitespace})([a-zA-Z0-9_-]+${equalsOk ? '=.*' : ''})$`)
+      );
     }
     if (type.allMatches == null) return null;
     return {
@@ -130,12 +144,13 @@ export class NamespecParser {
 
     const imports = new Map();
     const reserves = new Map();
+    const declares = new Map();
 
-    const result: Namespec = {namespace, imports, reserves};
+    const result: Namespec = {namespace, imports, reserves, declares};
 
     while (true) {
       // Iterate through remaining file consuming import statements.
-      const entryResult = this.consumeImportOrReserve();
+      const entryResult = this.consumeMethod();
       if (entryResult.contents == null) {
         // If at end-of-file, successful parse!
         this.consumeWhitespaceWhileExists();
@@ -151,6 +166,7 @@ export class NamespecParser {
 
       let importMap: Map<string, string[]> | null = null;
       let reservedMap: Map<string, Set<string>> | null = null;
+      let declaredMap: Map<string, Map<string, string>> | null = null;
       if (entryResult.flag == 'import') {
         const importNamespace = entryResult.contents;
         if (!result.imports.has(importNamespace)) {
@@ -160,7 +176,7 @@ export class NamespecParser {
         } else {
           importMap = result.imports.get(importNamespace) as Map<string, string[]>;
         }
-      } else if (entryResult.flag != 'reserve') {
+      } else if (entryResult.flag != 'reserve' && entryResult.flag != 'declare') {
         throw new Error(`Unexpected flag: ${entryResult.flag}`);
       }
 
@@ -176,13 +192,19 @@ export class NamespecParser {
           let name;
           if (expectedNameWhitespace == null) {
             // If name indent level is unknown, search for more indented than type.
-            name = this.consumeIndented(expectedTypeWhitespace + '[ \t]+');
+            name = this.consumeIndented(
+              expectedTypeWhitespace + '[ \t]+',
+              entryResult.flag == 'declare'
+            );
           } else {
-            name = this.consumeIndented(expectedNameWhitespace);
+            name = this.consumeIndented(
+              expectedNameWhitespace,
+              entryResult.flag == 'declare'
+            );
           }
           if (name == null) break;
 
-          const nameValue = name.value;
+          let nameValue = name.value;
           expectedNameWhitespace = name.whitespace;
 
           // Add in the type, name pair.
@@ -195,12 +217,24 @@ export class NamespecParser {
               importMap.set(typeValue, [nameValue]);
             }
           } else if (reserves != null) {
-            // Add reserved.
-            if (reserves.has(typeValue)) {
-              const reservedSet = reserves.get(typeValue) as Set<string>;
-              reservedSet.add(nameValue);
+            // Add reserved or declared.
+            let varValue;
+            if (entryResult.flag == 'declare') {
+              // Parse out declare value
+              [nameValue, varValue] = extractVarValue(nameValue);
+              if (declares.has(typeValue)) {
+                const declaredMap = declares.get(typeValue) as Map<string, string>;
+                declaredMap.set(nameValue, varValue);
+              } else {
+                declares.set(typeValue, new Map([[nameValue, varValue]]));
+              }
             } else {
-              reserves.set(typeValue, new Set([nameValue]));
+              if (reserves.has(typeValue)) {
+                const reservedSet = reserves.get(typeValue) as Set<string>;
+                reservedSet.add(nameValue);
+              } else {
+                reserves.set(typeValue, new Set([nameValue]));
+              }
             }
           } else {
             throw new Error('Expected import or reserved map to be set');
