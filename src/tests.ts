@@ -638,6 +638,129 @@ declare
   );
 });
 
+t.test('distinguisherNamespecDeclareModuleNoSpec', () => {
+  const fs = new VirtualFs();
+  fs.writeFileSync(
+    '/src/.namespec',
+    `namespace main
+
+declare
+  var
+    blue=#697f98`
+  );
+  fs.writeFileSync('/src/index.html', '<svg><rect fill="_var-blue"></rect></svg>');
+  fs.writeFileSync('/src/toggle/toggle.html', '_var-blue');
+
+  const config: DistinguishConfig = {
+    inputDir: '/src/',
+    outputDir: '/out/',
+    incrementer: 'minimal',
+    types: ['cls', 'id', 'var'],
+    exclude: [],
+  };
+
+  const d = new Distinguisher(config, fs, fs.dirname, false);
+  d.run();
+
+  t.assertEquals(fs.readFileSync('/out/toggle/toggle.html').toString(), '#697f98');
+});
+
+t.test('distinguisherNamespecDeclareModuleSpec', () => {
+  const fs = new VirtualFs();
+  fs.writeFileSync(
+    '/src/.namespec',
+    `namespace main
+
+declare
+  var
+    blue=#697f98`
+  );
+  fs.writeFileSync('/src/index.html', '<svg><rect fill="_var-blue"></rect></svg>');
+  fs.writeFileSync('/src/toggle/.namespec', 'namespace toggle');
+  fs.writeFileSync('/src/toggle/toggle.html', '_var-blue');
+
+  const config: DistinguishConfig = {
+    inputDir: '/src/',
+    outputDir: '/out/',
+    incrementer: 'minimal',
+    types: ['cls', 'id', 'var'],
+    exclude: [],
+  };
+
+  const d = new Distinguisher(config, fs, fs.dirname, false);
+  d.run();
+
+  t.assertEquals(fs.readFileSync('/out/toggle/toggle.html').toString(), 'a');
+});
+
+t.test('distinguisherNamespecDeclareModuleSpecImportParent', () => {
+  const fs = new VirtualFs();
+  fs.writeFileSync(
+    '/src/.namespec',
+    `namespace main
+
+declare
+  var
+    blue=#697f98`
+  );
+  fs.writeFileSync('/src/index.html', '<svg><rect fill="_var-blue"></rect></svg>');
+  fs.writeFileSync(
+    '/src/toggle/.namespec',
+    `namespace toggle
+
+from .. import
+  var
+    blue`
+  );
+  fs.writeFileSync('/src/toggle/toggle.html', '_var-blue');
+
+  const config: DistinguishConfig = {
+    inputDir: '/src/',
+    outputDir: '/out/',
+    incrementer: 'minimal',
+    types: ['cls', 'id', 'var'],
+    exclude: [],
+  };
+
+  const d = new Distinguisher(config, fs, fs.dirname, false);
+  d.run();
+
+  t.assertEquals(fs.readFileSync('/out/toggle/toggle.html').toString(), '#697f98');
+});
+
+t.test('distinguisherNamespecDeclareModuleSpecImportChild', () => {
+  // Cannot import going the other way.
+  const fs = new VirtualFs();
+  fs.writeFileSync(
+    '/src/.namespec',
+    `namespace main
+
+declare
+  var
+    blue=#697f98
+
+from toggle import
+  var
+    blue`
+  );
+  fs.writeFileSync('/src/index.html', '<svg><rect fill="_var-blue"></rect></svg>');
+  fs.writeFileSync('/src/toggle/toggle.html', '_var-blue');
+  fs.writeFileSync('/src/toggle/.namespec', 'namespace toggle');
+
+  const config: DistinguishConfig = {
+    inputDir: '/src/',
+    outputDir: '/out/',
+    incrementer: 'minimal',
+    types: ['cls', 'id', 'var'],
+    exclude: [],
+  };
+
+  const d = new Distinguisher(config, fs, fs.dirname, false);
+  d.run();
+
+  t.assertEquals(fs.readFileSync('/out/toggle/toggle.html').toString(), 'a');
+});
+
 function cli(argsString: string, fsInit?: (fs: VirtualFs) => void): CLIResult {
   const fs = new VirtualFs();
   if (fsInit != null) fsInit(fs);
