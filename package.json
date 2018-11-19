@@ -1,6 +1,6 @@
 {
   "name": "distinguish",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "description": "Effortless renaming, minification, and namespacing for CSS class names, IDs, and just about anything else.",
   "main": "out/cli.js",
   "scripts": {
@@ -24,8 +24,10 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^10.12.2",
-    "chokidar": "^2.0.4",
     "ts-node": "^7.0.1",
     "typescript": "^3.1.6"
+  },
+  "dependencies": {
+    "chokidar": "^2.0.4"
   }
 }

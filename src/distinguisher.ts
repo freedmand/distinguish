@@ -154,7 +154,7 @@ export class Distinguisher {
       for (const type of this.distinguishConfig.types) {
         // Find all matches.
         const matches = getAllMatches(
-          new RegExp(`_(${type})[\$-]([a-zA-Z0-9_-]+)`, 'g'),
+          new RegExp(`_(${type})[\$-]([a-zA-Z0-9-]+)_?`, 'g'),
           contents
         );
         let offset = 0;

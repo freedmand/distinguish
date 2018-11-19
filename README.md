@@ -138,7 +138,7 @@ Incrementers work behind the scenes to assign names. There's three main incremen
 
 While the examples have been laser-focused on CSS classes and IDs, there's no limit to what types can be renamed. Distinguish was designed to support whatever types you want. `['cls', 'id']` is the default configuration, but you're free to modify or do away with those types.
 
-Distinguish will modify any string of the form `_{type}-{name}` that it encounters in the files it recursively crawls in the input directory, where `{type}` is the type name (e.g. `cls`). For compatibility with JavaScript variable naming rules, `_{type}${name}` is also transformed.
+Distinguish will modify any string of the form `_{type}-{name}` that it encounters in the files it recursively crawls in the input directory, where `{type}` is the type name (e.g. `cls`). For compatibility with JavaScript variable naming rules, `_{type}${name}` is also transformed. For compatibility with situations where a letter must immediately follow the transformed name, `_{type}-{name}_` and `_{type}${name}_` are also transformed.
 
 For example, you could add the type `fn` and then have your JavaScript functions automatically minified (e.g. `_fn$parse()` → `a`) — though I would recommend using an intelligent JS minifier instead.
 
